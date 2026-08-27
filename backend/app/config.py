@@ -52,10 +52,11 @@ VERSION = "0.1.0"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 # Se elige por CUOTA, no por capacidad. En el tier gratuito el flash puntero
 # (3.7, al que apunta el alias gemini-flash-latest) da 5 peticiones por minuto
-# y 20 al dia; 3.1 Flash Lite da 15 y 500. Reescribir una frase de una linea no
-# necesita el modelo mas capaz, y 148 relaciones no caben en 20 peticiones.
+# y 20 al dia; 3.1 Flash Lite da 15 y 500. Con 20 al dia, dos analisis y una
+# tanda de 151 justificaciones ya agotan el cupo: el modelo grande convertiria
+# la POC en algo que el evaluador no puede probar dos veces seguidas.
 #
 # El coste de fijar version es que caduca (gemini-2.0-flash ya devuelve 404).
-# Se asume a conciencia: si un dia falla, el script lo dice, no escribe nada y
-# el sistema sigue con las plantillas.
+# Se asume a conciencia: si un dia falla, el sistema lo dice y sigue -el
+# analisis queda no disponible y las relaciones usan el texto de plantilla.
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite").strip()
