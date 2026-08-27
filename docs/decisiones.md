@@ -239,7 +239,8 @@ historial.
 | Líneas repetidas del mismo SKU se **suman** antes de descontar | Dos líneas de 5 contra stock 8 deben fallar como una de 10, no colar 5 y luego 5 |
 | Tope de 6 complementos, no 3 | Los consumibles de una actividad puntúan casi igual; con un tope corto llenan la lista de casi-duplicados (dos varillas) y dejan fuera el accesorio y el EPP |
 | `movimientos_inventario` append-only | Permite reconstruir el stock sumando deltas; un test comprueba que cuadra |
-| El ticket se vacía al cambiar de tienda | Un ticket pertenece a una plaza y no se arrastra a otra sucursal |
+| El ticket se vacía al cambiar de tienda, y **solo** ahí | Un ticket pertenece a la plaza donde se cobra. Cambiar de vista no es cambiar de plaza: consultar un precio en el catálogo a media venta es lo normal, así que el ticket vive en el layout y sobrevive a la navegación |
+| El diagnóstico de plaza se calcula en el backend | Tres de sus ocho hallazgos necesitan la tabla `ventas`, que la API no expone; calcularlo en el cliente obligaría a mandarle el histórico entero para deducir una frase |
 | Un solo `QueryClient` por montaje, en `useState` | Evita que un remount comparta caché sin querer |
 | `FAMILIAS` como constante | Honesto para 28 SKUs; **no escala** — en producción es una columna del maestro de productos |
 

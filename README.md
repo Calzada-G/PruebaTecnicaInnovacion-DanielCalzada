@@ -43,6 +43,22 @@ npm run dev
 Abre **http://localhost:3000**. La API tiene documentación interactiva en
 **http://localhost:8000/docs**.
 
+Al arrancar, `uvicorn` imprime qué encontró, para no tener que adivinar si el
+proceso quedó realmente operativo:
+
+```
+  Ferreteria Salinas - API 0.1.0
+  Base de datos : D:\...\backend\ferreteria.db
+  Contenido     : 28 productos activos - 5 sucursales - 42 tickets - 151 relaciones (151 redactadas por IA)
+  Frontend      : http://localhost:3000
+  Comprobalo en : http://localhost:8000/  o  /docs
+```
+
+Si la base todavía no está sembrada, el mismo banner lo dice y muestra los dos
+comandos que faltan. Y **http://localhost:8000/** ya no devuelve
+`{"detail":"Not Found"}`: sirve una portada con ese mismo estado y los enlaces a
+`/docs`. La versión para máquinas es `GET /api/salud`.
+
 El seed debe imprimir:
 
 ```
@@ -108,6 +124,27 @@ justificaciones del LLM a 123. Hay utilidades `.recorta` / `.recorta-2` y
 `min-w-0` en cada contenedor flex, más altura fija de dos líneas en las tarjetas
 de sugerencia para que no queden desparejas.
 
+**El ticket sobrevive al cambio de pestaña.** Vivía dentro de la vista del
+Mostrador, y con enrutado por ficheros esa vista se desmonta al ir a Catálogo:
+el vendedor perdía lo que llevaba cobrado solo por consultar un precio. Ahora
+vive en `lib/ticket-context.tsx`, colgado del layout, que no se desmonta entre
+rutas. Fuera del Mostrador la cabecera muestra un recordatorio con las piezas y
+el total que devuelve a la pantalla de cobro. **Solo se vacía al cambiar de
+sucursal** —ahí sí tiene sentido: un ticket pertenece a la plaza donde se cobra—
+y cuando pasa, lo dice en vez de vaciarse en silencio.
+
+**La aplicación ocupa la ventana, no la página.** `body` es un flex vertical de
+`100dvh`: la cabecera mide lo que mida y el contenido se queda con el resto. Las
+tres columnas del Mostrador llegan exactamente hasta abajo y cada una decide qué
+scrollea dentro. Antes se calculaban con `100vh` menos una constante, y esa
+constante dejaba un hueco muerto bajo la lista y bajo el ticket que cambiaba con
+cada tamaño de ventana.
+
+**La tabla del catálogo declara sus anchos** (`table-fixed`). Sin eso el
+navegador repartía a ojo y le daba a *para qué sirve* el espacio que necesitaba
+el nombre, que es la columna por la que el encargado localiza lo que viene a
+corregir. El nombre ocupa el 44 % y se lee en dos líneas en vez de cortarse.
+
 ### Relaciones: por qué ya no es una tabla de métricas
 
 La primera versión mostraba `soporte`, `confianza`, `lift`, `score` y
@@ -141,7 +178,7 @@ que parecería «muy débil», muestran **«Según la plaza»**.
 
 ```bash
 cd backend
-pytest -v                    # 58 tests, incluye 50 hilos contra stock 8
+pytest -v                    # 64 tests, incluye 50 hilos contra stock 8
 python scripts/evaluar.py    # tabla real contra 4 baselines
 ```
 
@@ -151,7 +188,8 @@ python scripts/evaluar.py    # tabla real contra 4 baselines
 | `test_compra.py` | Atomicidad del ticket, idempotencia, casos límite |
 | `test_crud.py` | CRUD a nivel de servicio y borrado lógico |
 | `test_crud_api.py` | **Ciclo completo por HTTP**: alta → edición → baja → reactivación → venta, y el efecto de cada operación sobre lo que el mostrador puede vender y recomendar |
-| `test_contrato_api.py` | **El contrato que consume el frontend**: código de estado de las 26 rutas, forma exacta del JSON, y que `activo` sea booleano en todos los endpoints |
+| `test_contrato_api.py` | **El contrato que consume el frontend**: código de estado de las 31 rutas, forma exacta del JSON, y que `activo` sea booleano en todos los endpoints |
+| `test_diagnostico.py` | Que los hallazgos salgan de los datos: Mérida deja de reportarse sin historial en cuanto se cobra ahí, agotar un producto lo convierte en hallazgo, y un paquete nunca se propone con una pieza sin existencia |
 | `test_recomendaciones.py` | Filtros duros, cold start, bloquear/fijar/peso |
 
 ### Códigos de estado, ruta por ruta
@@ -290,11 +328,13 @@ capaz, necesita poder ejecutarse. El recorrido completo (incluido que
 ```
 backend/app/
 ├── routers/         HTTP → servicios. Nunca abren transacciones
-│                    productos · compras · recomendaciones · relaciones
+│                    productos · compras · recomendaciones · relaciones ·
+│                    diagnostico
 ├── services/        Lógica de negocio y LÍMITE TRANSACCIONAL
-│                    catalogo · compra · recomendacion · relaciones
+│                    catalogo · compra · recomendacion · relaciones ·
+│                    diagnostico
 ├── repositories/    Todo el SQL. Los servicios no conocen SQLite
-│                    productos · ventas · relaciones
+│                    productos · ventas · relaciones · tiendas
 └── recomendador/
     ├── base.py       Protocol FuenteRecomendacion + Candidato
     ├── historico.py  Co-ocurrencia + Wilson
@@ -305,7 +345,7 @@ backend/app/
 frontend/
 ├── app/             layout + 3 vistas (Mostrador, Catálogo, Relaciones)
 ├── lib/             api.ts (único cliente HTTP), contexto de tienda,
-│                    notificaciones, visual
+│                    contexto de ticket, notificaciones, visual
 ├── hooks/           uno por recurso
 └── componentes/     presentación pura, sin fetch
 ```
@@ -557,6 +597,54 @@ dentro de `AtributosStrategy`, y el histórico la reintroducía por detrás.
 multiplicando por el peso configurable. Así se puede subir o bajar una fuente
 entera desde el panel sin recalcular nada.
 
+## 4.b El sistema detecta sus propias carencias
+
+`services/diagnostico_service.py` · `GET /api/diagnostico?tienda=` · banda de
+tarjetas bajo la cabecera del Catálogo.
+
+El resto de la API responde preguntas: dame el catálogo, recomiéndame algo. Esto
+es lo contrario: **la sucursal no pregunta nada y el sistema le dice qué no está
+funcionando**. Es la mitad que faltaba del encargo —el enunciado pide subir
+ventas, y para eso no basta con recomendar mejor: hay que saber qué se está
+dejando de vender.
+
+Nace del caso Mérida, pero **no es un caso especial escrito a mano para Mérida**.
+La falta de histórico es uno más de los hallazgos y se calcula igual para las
+cinco plazas; un test comprueba que el aviso desaparece solo en cuanto se cobra
+un ticket ahí. Todo sale de datos que ya existen —`ventas`, `productos`,
+`relaciones`—: ni una tabla nueva ni un dato capturado a mano.
+
+| Hallazgo | Cómo se deriva | Qué significa para el negocio |
+|---|---|---|
+| `plaza_sin_historial` | 0 tickets de esa tienda | Aquí ninguna regla de asociación puede hablar; todo sale de atributos. Es Mérida, hoy |
+| `nunca_vendido` | 0 líneas de venta en toda la cadena | El sistema no puede aprender de ellos. Es SKU027 |
+| `sin_venta_en_la_plaza` | Se vende en otras tiendas y aquí no | Ordenado por unidades vendidas fuera: los primeros son los que más se están dejando de ofrecer |
+| `sin_existencia` | `stock = 0` y activo | Fuera del mostrador y de las recomendaciones. Cada uno es una venta que hoy no se puede cerrar |
+| `por_agotarse` | `stock ≤ 5` | Reponer cuesta menos que perder la venta |
+| `sin_recambio_para_la_plaza` | Adecuación al perfil < 0.5 **y** sin sustituto que sí sirva aquí | El hueco real del catálogo: qué producto convendría dar de alta en esta sucursal |
+| `sin_nada_que_ofrecer` | No aparece como origen de ninguna relación | Al venderlo el ticket se queda en una pieza |
+| `promocion_con_respaldo` | Par histórico con más soporte, ambos con existencia | La promoción que los datos sí sostienen |
+
+**Por qué en el backend y no en el frontend.** Tres de los ocho hallazgos
+necesitan la tabla `ventas`, que la API no expone y no debería exponer para
+esto. Calcularlo en el cliente habría obligado a mandarle el histórico entero
+para que dedujera una frase.
+
+**Por qué cada hallazgo lleva una acción.** Un diagnóstico sin qué-hacer solo
+genera ansiedad, y a la tercera vez se ignora. `nivel` es un `Literal` de tres
+valores y no texto libre: el panel pinta por nivel, y un valor inventado en el
+servicio daría una tarjeta sin color en vez de un error.
+
+**Por qué se puede ocultar.** Son avisos, no una tarea asignada. Quien ya los vio
+no debería volver a tenerlos delante cada vez que entra —y menos con un cliente
+esperando—, así que hay un botón *Ocultar* y la preferencia se recuerda por
+navegador. Un aviso que no se puede callar acaba ignorándose, que es peor.
+
+**Se invalida al cobrar y al tocar el catálogo.** Un panel que sigue diciendo
+«3 sin existencia» después de reponerlas enseña a ignorarlo.
+
+---
+
 ## 5. Arquitectura del frontend
 
 La distinción que ordena todo el frontend es **estado de servidor vs estado de
@@ -570,17 +658,24 @@ cliente**:
 | Efímero de UI | `useState` en el componente | acordeón abierto, índice resaltado |
 
 **Por qué no Redux ni Zustand.** Un store global existe para compartir estado
-entre partes lejanas del árbol. Aquí lo único verdaderamente global es la
-sucursal —un string— y lo demás o es de servidor (y entonces el problema real no
+entre partes lejanas del árbol. Aquí sólo hay dos cosas verdaderamente globales
+—la sucursal y el ticket en curso—, y las dos lo son por la misma razón: se
+comparten entre rutas. Lo demás o es de servidor (y entonces el problema real no
 es guardarlo sino *invalidarlo*, que es justo lo que TanStack Query resuelve) o
 es local a una vista. Un store añadiría una segunda copia de los datos que ya
-están en la caché de Query, con el riesgo clásico de que las dos discrepen.
+están en la caché de Query, con el riesgo clásico de que las dos discrepen. Dos
+contextos de ~150 líneas no justifican una dependencia.
+
+**Los dos contextos están anidados en ese orden a propósito:** avisos → tienda →
+ticket. El ticket se vacía cuando cambia la tienda y avisa de que lo hizo, así
+que necesita ver a los dos de arriba.
 
 **La invalidación es funcional, no cosmética.** Tras cobrar:
 
 ```ts
 cliente.invalidateQueries({ queryKey: ["productos"] });
 cliente.invalidateQueries({ queryKey: ["recomendaciones"] });
+cliente.invalidateQueries({ queryKey: ["diagnostico"] });
 ```
 
 Sin esto la interfaz seguiría mostrando el stock anterior y **podría ofrecer un
@@ -679,6 +774,8 @@ Orientada a recursos, sin ceremonia REST que no aporte:
 ## API
 
 ```
+GET    /                                    portada de estado (HTML)
+GET    /api/salud                           estado en JSON
 GET    /api/tiendas
 GET    /api/productos?q=&tienda=&incluir_inactivos=
 GET    /api/productos/{sku}
@@ -687,6 +784,7 @@ PATCH  /api/productos/{sku}
 DELETE /api/productos/{sku}                 borrado lógico
 POST   /api/compras                         header: Idempotency-Key
 GET    /api/recomendaciones?sku=&tienda=&excluir=SKU,SKU
+GET    /api/diagnostico?tienda=             qué le falta a esa plaza
 GET    /api/relaciones?tipo=&fuente=
 PATCH  /api/relaciones/{id}                 { estado, peso_manual }
 GET    /api/config/pesos
@@ -751,6 +849,13 @@ justo el problema interesante**, que es demostrar que el sistema responde bien s
 historial. El 0/7 del histórico frente al 6/7 de los atributos deja de significar
 nada si se rellena el hueco a mano.
 
+**Lo que sí se hizo: que el sistema lo diga.** No hace falta inventar datos para
+tratar el hueco como lo que es. `GET /api/diagnostico` lo detecta y el Catálogo
+lo muestra al entrar en Mérida: *«Mérida no tiene ni un ticket registrado — de
+los 42 del histórico, ninguno es de esta sucursal»*, con lo que eso implica y qué
+hacer. Un sistema que no sabe algo debería decirlo, no disimularlo. Ver
+[4.b](#4b-el-sistema-detecta-sus-propias-carencias).
+
 **Cómo lo resolvería en producción, en orden de preferencia:**
 
 1. **Onboarding de sucursal (lo que realmente haría).** Al dar de alta una tienda,
@@ -772,9 +877,10 @@ tienda en las reglas históricas — hoy no la tienen porque no hacía falta.
 
 ## 3. Módulo de tickets: lo que falta para ser un punto de venta
 
-Hoy se cobra y el inventario baja, pero **el ticket se pierde en cuanto se cierra
-la pantalla**. Es la carencia más visible para alguien que pruebe el sistema. Lo
-bueno es que la base ya está preparada:
+Hoy se cobra, el inventario baja y el ticket en curso sobrevive al cambio de
+vista, pero **se pierde al recargar la pestaña** y no queda un comprobante que se
+pueda volver a consultar. Es la carencia más visible para alguien que pruebe el
+sistema. Lo bueno es que la base ya está preparada:
 
 - **Historial de tickets** (`GET /api/compras`, `GET /api/compras/{id}`). Los
   datos ya se guardan en `ventas` agrupados por `ticket_id`; falta exponerlos y
@@ -807,6 +913,9 @@ usable. Ninguna exigió reingeniería:
 | **Aviso al cerrar con ticket abierto** | Cerrar la pestaña a media venta pierde el trabajo y el cliente sigue enfrente |
 | **`/` para enfocar el buscador, flechas y Enter** | Teclado antes que ratón |
 | **Estados vacíos que enseñan** | El primer arranque explica qué hace el sistema en vez de mostrar una tabla en blanco |
+| **El ticket sigue vivo entre pestañas** | Consultar un precio en el Catálogo a media venta es lo normal, no una excepción |
+| **Recordatorio del ticket en la cabecera** | Fuera del Mostrador, la única forma de saber que sigue abierto |
+| **Portada y banner de arranque de la API** | `localhost:8000` devolvía `{"detail":"Not Found"}`: quien clona el repositorio no sabía si había arrancado bien |
 
 ## 4. Otras funcionalidades que valdría la pena
 
@@ -816,7 +925,7 @@ usable. Ninguna exigió reingeniería:
 | **`familia` como columna del maestro** | Hoy es una constante en `atributos.py` y un alta nueva no entra en ninguna familia hasta tocar código | Columna + selector en el catálogo |
 | **Reconstrucción automática de relaciones** | Tras un alta, el producto recibe complementos al vuelo pero no aparece en el panel hasta reconstruir | Disparador tras el alta o tarea nocturna |
 | **Autenticación y roles** | El panel de Relaciones y el CRUD no pueden estar abiertos. La sucursal debería venir del usuario, no elegirse a mano | OAuth2 con scopes `vendedor` / `encargado` |
-| **Alertas de reabastecimiento** | El sistema ya sabe qué está por agotarse y qué se vende junto; podría avisar antes de la rotura de stock | Consulta sobre `movimientos_inventario` |
+| **Reabastecimiento que se adelanta** | El diagnóstico ya lista lo agotado y lo que baja de 5 piezas, pero hay que entrar al Catálogo a verlo. Falta que avise solo, y que calcule el punto de pedido con la velocidad de venta de cada plaza | Consulta sobre `movimientos_inventario` + un canal de aviso |
 | **A/B en mostrador** | Es la única forma de demostrar que las recomendaciones suben ventas. Lo offline sirve para no salir a ciegas, no para declarar victoria | Requiere primero la tasa de aceptación |
 | **Sugerencias por temporada** | Época de lluvias e impermeabilizantes, por ejemplo. Encaja como **una clase nueva** que cumpla `FuenteRecomendacion` | Es justo el caso para el que se eligió Strategy |
 
