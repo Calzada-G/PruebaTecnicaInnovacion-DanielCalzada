@@ -24,6 +24,7 @@ panel de Relaciones: si escribe algo malo, el negocio lo ve y lo corrige.
 
 import json
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -37,6 +38,12 @@ from app.repositories import relaciones_repo  # noqa: E402
 URL = "https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"
 TAMANO_LOTE = 20
 LARGO_MAXIMO = 180
+
+# El tier gratuito devuelve 503 y 429 con frecuencia por saturacion. Son fallos
+# transitorios, no errores de la peticion: sin reintento el script escribe una
+# fraccion de lo que podria y parece roto cuando solo habia que esperar.
+REINTENTABLES = (429, 500, 502, 503, 504)
+ESPERAS = (2, 6, 15)
 
 INSTRUCCION = """Eres el encargado de una ferreteria mexicana con 5 sucursales.
 Reescribe cada justificacion para que un vendedor de mostrador se la pueda
@@ -56,6 +63,14 @@ Relaciones a reescribir:
 """
 
 
+def _sin_clave(error: Exception) -> str:
+    """Nunca imprimir la credencial, venga de donde venga el mensaje."""
+    texto = str(error)
+    if GEMINI_API_KEY:
+        texto = texto.replace(GEMINI_API_KEY, "***")
+    return texto
+
+
 def pedir_lote(cliente: httpx.Client, lote: list[dict]) -> dict[int, str]:
     entrada = [
         {
@@ -67,19 +82,30 @@ def pedir_lote(cliente: httpx.Client, lote: list[dict]) -> dict[int, str]:
         }
         for r in lote
     ]
-    respuesta = cliente.post(
-        URL.format(modelo=GEMINI_MODEL),
-        params={"key": GEMINI_API_KEY},
-        json={
-            "contents": [
-                {"parts": [{"text": INSTRUCCION + json.dumps(entrada, ensure_ascii=False)}]}
-            ],
-            "generationConfig": {
-                "responseMimeType": "application/json",
-                "temperature": 0.4,
-            },
+    cuerpo_peticion = {
+        "contents": [
+            {"parts": [{"text": INSTRUCCION + json.dumps(entrada, ensure_ascii=False)}]}
+        ],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "temperature": 0.4,
         },
-    )
+    }
+
+    for intento, espera in enumerate((*ESPERAS, None)):
+        respuesta = cliente.post(
+            URL.format(modelo=GEMINI_MODEL),
+            # La clave va en cabecera y no como ?key=: httpx incluye la URL
+            # completa en el texto de sus excepciones, asi que un 404 impreso
+            # en consola filtraria la credencial a los logs.
+            headers={"x-goog-api-key": GEMINI_API_KEY},
+            json=cuerpo_peticion,
+        )
+        if respuesta.status_code not in REINTENTABLES or espera is None:
+            break
+        print(f"    {respuesta.status_code} transitorio, reintento en {espera}s")
+        time.sleep(espera)
+
     respuesta.raise_for_status()
     cuerpo = respuesta.json()
     texto = cuerpo["candidates"][0]["content"]["parts"][0]["text"]
@@ -129,7 +155,7 @@ def main() -> None:
                     # Un lote fallido no puede tumbar el proceso ni dejar la
                     # base a medias: lo que ya se escribio es valido y lo que
                     # falta se queda con su plantilla.
-                    print(f"  lote {inicio // TAMANO_LOTE + 1}: fallo ({exc})")
+                    print(f"  lote {inicio // TAMANO_LOTE + 1}: fallo ({_sin_clave(exc)})")
                     continue
 
                 cur = bd.cursor()

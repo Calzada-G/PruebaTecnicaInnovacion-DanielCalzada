@@ -46,4 +46,7 @@ ORIGENES_CORS = [
 ]
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash").strip()
+# Alias que Google mantiene apuntando al flash estable vigente. Fijar una
+# version concreta condena el script a romperse: 'gemini-2.0-flash' ya devuelve
+# 404 contra la API actual.
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest").strip()
