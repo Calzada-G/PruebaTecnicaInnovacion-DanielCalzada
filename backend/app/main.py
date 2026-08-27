@@ -21,7 +21,7 @@ from .errores import (
     StockInsuficiente,
     TiendaNoEncontrada,
 )
-from .routers import productos
+from .routers import compras, productos
 
 app = FastAPI(
     title="Ferreteria - inventario y recomendaciones",
@@ -59,6 +59,7 @@ def manejar_error_dominio(_: Request, exc: ErrorDominio) -> JSONResponse:
 
 
 app.include_router(productos.router)
+app.include_router(compras.router)
 
 
 @app.get("/api/tiendas")

@@ -107,11 +107,6 @@ def descontar_stock(bd: sqlite3.Connection, sku: str, cantidad: int) -> int:
     return cur.rowcount
 
 
-def stock_actual(bd: sqlite3.Connection, sku: str) -> int | None:
-    fila = bd.execute("SELECT stock FROM productos WHERE sku = ?", (sku,)).fetchone()
-    return None if fila is None else fila["stock"]
-
-
 def registrar_movimiento(
     bd: sqlite3.Connection,
     sku: str,
