@@ -178,7 +178,7 @@ que parecería «muy débil», muestran **«Según la plaza»**.
 
 ```bash
 cd backend
-pytest -v                    # 64 tests, incluye 50 hilos contra stock 8
+pytest -v                    # 67 tests, incluye 50 hilos contra stock 8
 python scripts/evaluar.py    # tabla real contra 4 baselines
 ```
 
@@ -188,7 +188,7 @@ python scripts/evaluar.py    # tabla real contra 4 baselines
 | `test_compra.py` | Atomicidad del ticket, idempotencia, casos límite |
 | `test_crud.py` | CRUD a nivel de servicio y borrado lógico |
 | `test_crud_api.py` | **Ciclo completo por HTTP**: alta → edición → baja → reactivación → venta, y el efecto de cada operación sobre lo que el mostrador puede vender y recomendar |
-| `test_contrato_api.py` | **El contrato que consume el frontend**: código de estado de las 31 rutas, forma exacta del JSON, y que `activo` sea booleano en todos los endpoints |
+| `test_contrato_api.py` | **El contrato que consume el frontend**: código de estado de las 36 rutas, forma exacta del JSON, y que `activo` sea booleano en todos los endpoints |
 | `test_diagnostico.py` | Que los hallazgos salgan de los datos: Mérida deja de reportarse sin historial en cuanto se cobra ahí, agotar un producto lo convierte en hallazgo, y un paquete nunca se propone con una pieza sin existencia |
 | `test_recomendaciones.py` | Filtros duros, cold start, bloquear/fijar/peso |
 
@@ -757,6 +757,14 @@ Orientada a recursos, sin ceremonia REST que no aporte:
 | `excluir=SKU,SKU` como query param | La recomendación es una lectura: tiene que ser `GET`, cacheable e idempotente. Meter el ticket en un cuerpo obligaría a `POST` y mentiría sobre la semántica |
 | El error lleva `sku` y `disponible` | El mostrador necesita el número para decir «Quedan 3», no solo un texto que tendría que parsear |
 | Un `exception_handler` central | Traduce excepciones de dominio a códigos de estado en un solo sitio. Es lo que permite que los servicios no importen FastAPI |
+| `buscar` y no `q` | Era el único parámetro que no se explicaba solo en `/docs`. Busca en cinco campos a la vez —nombre, SKU, categoría, material y uso—, que es lo que permite encontrar por «salino» |
+| `DELETE` repetido → `204`, no error | La baja es idempotente: el efecto buscado ya se cumplió. Con dos pestañas abiertas, la segunda no debería fallar por llegar tarde |
+| `tienda` inexistente → `404` **en todas** | `GET /api/productos` era la excepción y respondía `200` con el orden alfabético: un slug mal escrito devolvía un catálogo que parecía correcto |
+| Los pesos acotados a `0…10` | La tabla tiene `CHECK (peso >= 0)`; sin acotar antes, un peso negativo reventaba contra la base **con un 500**, que es mentir: el dato es inválido, no el servidor |
+
+Auditar las quince operaciones una por una —48 casos entre respuestas correctas
+y errores— es lo que sacó esas cuatro. El detalle completo está en
+[`docs/api.md`](docs/api.md).
 
 ## 7. Modelo de datos
 
@@ -777,7 +785,7 @@ Orientada a recursos, sin ceremonia REST que no aporte:
 GET    /                                    portada de estado (HTML)
 GET    /api/salud                           estado en JSON
 GET    /api/tiendas
-GET    /api/productos?q=&tienda=&incluir_inactivos=
+GET    /api/productos?buscar=&tienda=&incluir_inactivos=
 GET    /api/productos/{sku}
 POST   /api/productos
 PATCH  /api/productos/{sku}
@@ -791,7 +799,14 @@ GET    /api/config/pesos
 PUT    /api/config/pesos
 ```
 
-Documentación interactiva en `http://localhost:8000/docs`.
+Documentación interactiva en `http://localhost:8000/docs`, generada desde el
+propio código.
+
+**El detalle de cada ruta —qué hace, por qué existe, quién la consume, ejemplos
+de petición y respuesta y todos sus errores— está en
+[`docs/api.md`](docs/api.md).** Ahí también está por qué son quince operaciones
+y no más, y qué significa el `additionalProp1` que Swagger enseña en los
+ejemplos.
 
 ---
 
