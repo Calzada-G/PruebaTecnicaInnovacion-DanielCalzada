@@ -14,20 +14,34 @@ alta, teclado antes que ratón, cero contenido de marketing.
 
 Requisitos: **Python 3.13+** y **Node 20+**. No hace falta Docker ni API keys.
 
+> **Los cuatro comandos se ejecutan desde `backend/` los dos primeros y desde
+> `frontend/` los dos últimos.** `uvicorn` debe correr **dentro de `backend/`**:
+> desde la raíz del repositorio falla con `ModuleNotFoundError: No module named 'app'`,
+> porque el paquete `app/` vive dentro de `backend/`.
+
+**Terminal 1 — API** (queda ocupada sirviendo en `http://localhost:8000`)
+
 ```bash
-# 1. Backend: entorno, dependencias, base de datos y relaciones
-cd backend && python -m venv .venv && .venv/Scripts/activate     # Linux/Mac: source .venv/bin/activate
-pip install -r requirements.txt && python -m app.seed && python scripts/construir_relaciones.py
+cd backend
+python -m venv .venv
+.venv\Scripts\activate                # Linux/Mac: source .venv/bin/activate
+pip install -r requirements.txt
+python -m app.seed                     # crea la base desde los CSV
+python scripts/construir_relaciones.py # calcula las sugerencias
+uvicorn app.main:app --reload          # <- desde backend/, no desde la raíz
+```
 
-# 2. Levantar la API  (http://localhost:8000/docs)
-uvicorn app.main:app --reload
+**Terminal 2 — Interfaz** (queda ocupada sirviendo en `http://localhost:3000`)
 
-# 3. Frontend, en otra terminal
-cd frontend && npm install && cp .env.example .env.local
-
-# 4. Levantar la interfaz  (http://localhost:3000)
+```bash
+cd frontend
+npm install
+cp .env.example .env.local             # Windows PowerShell: copy .env.example .env.local
 npm run dev
 ```
+
+Abre **http://localhost:3000**. La API tiene documentación interactiva en
+**http://localhost:8000/docs**.
 
 El seed debe imprimir:
 
@@ -127,7 +141,7 @@ que parecería «muy débil», muestran **«Según la plaza»**.
 
 ```bash
 cd backend
-pytest -v                    # 51 tests, incluye 50 hilos contra stock 8
+pytest -v                    # 58 tests, incluye 50 hilos contra stock 8
 python scripts/evaluar.py    # tabla real contra 4 baselines
 ```
 
