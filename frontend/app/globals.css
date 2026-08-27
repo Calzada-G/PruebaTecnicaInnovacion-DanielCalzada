@@ -1,10 +1,12 @@
 @import "tailwindcss";
 
 @theme {
-  --color-papel: #f4f5f6;
+  /* El fondo es mas frio y algo mas oscuro que antes: es lo que hace que una
+     tarjeta blanca se lea como una superficie por encima y no como un hueco. */
+  --color-papel: #eef1f4;
   --color-tinta: #14171a;
-  --color-acero: #6b7280;
-  --color-linea: #e2e5e8;
+  --color-acero: #667085;
+  --color-linea: #d7dde5;
 
   /* Estados: se usan en avisos y en indicadores de existencia. */
   --color-exito: #15803d;
@@ -21,7 +23,13 @@
 }
 
 :root {
-  --radio: 6px;
+  --radio: 7px;
+
+  /* Dos alturas y no cinco. Una superficie esta apoyada o esta levantada; una
+     escala mas larga solo produce discusiones sobre cual toca en cada sitio.
+     El tinte azulado (16 24 40) en vez de negro puro evita el gris sucio. */
+  --sombra-apoyada: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 5%);
+  --sombra-levantada: 0 4px 14px rgb(16 24 40 / 10%), 0 2px 5px rgb(16 24 40 / 6%);
   /* Suficiente para que el cambio se note, corto para que no estorbe a alguien
      que encadena operaciones con el teclado. */
   --transicion: 130ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -90,6 +98,7 @@ body {
   background: #fff;
   border: 1px solid var(--color-linea);
   border-radius: var(--radio);
+  box-shadow: var(--sombra-apoyada);
 }
 
 .tarjeta-activa {
@@ -101,7 +110,7 @@ body {
 
 .tarjeta-activa:hover {
   border-color: color-mix(in srgb, var(--color-acento) 45%, var(--color-linea));
-  box-shadow: 0 2px 10px rgb(20 23 26 / 8%);
+  box-shadow: var(--sombra-levantada);
   transform: translateY(-1px);
 }
 
@@ -137,6 +146,11 @@ body {
   background: var(--color-acento);
   color: #fff;
   border: 1px solid var(--color-acento);
+  box-shadow: var(--sombra-apoyada);
+}
+
+.boton-suave {
+  box-shadow: var(--sombra-apoyada);
 }
 
 .boton-suave {
@@ -149,6 +163,17 @@ body {
   color: var(--color-acento);
   border-color: color-mix(in srgb, var(--color-acento) 50%, var(--color-linea));
   background: color-mix(in srgb, var(--color-acento) 6%, #fff);
+}
+
+/* --- Encabezados -----------------------------------------------------------*/
+
+/* Las cabeceras de columna se leen de un vistazo, no se leen palabra a palabra:
+   el espaciado entre letras hace mas por eso que subir el tamano. */
+.cabecera {
+  letter-spacing: 0.045em;
+  color: var(--color-acero);
+  background: color-mix(in srgb, var(--color-papel) 55%, #fff);
+  border-bottom: 1px solid var(--color-linea);
 }
 
 /* --- Filas de tabla --------------------------------------------------------*/
@@ -204,6 +229,52 @@ body {
   animation: aparece 180ms ease both;
 }
 
+/* --- Estado de espera del mostrador ---------------------------------------- */
+
+@keyframes flota {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+.flota {
+  animation: flota 2.8s ease-in-out infinite;
+}
+
+@keyframes recorre {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.riel {
+  overflow: hidden;
+  background: var(--color-linea);
+  border-radius: 999px;
+  position: relative;
+}
+
+.riel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-acero),
+    transparent
+  );
+  opacity: 0.5;
+  animation: recorre 2.4s linear infinite;
+}
+
 /* Nadie deberia marearse por usar un punto de venta. */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -215,5 +286,9 @@ body {
   }
   .tarjeta-activa:hover {
     transform: none;
+  }
+  .flota,
+  .riel::after {
+    animation: none;
   }
 }

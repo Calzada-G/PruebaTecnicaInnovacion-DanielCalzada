@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { PackageX, Sparkles } from "lucide-react";
 import { BuscadorProducto } from "../componentes/BuscadorProducto";
+import { EsperaHerramientas } from "../componentes/EsperaHerramientas";
 import { BloqueRecomendacion } from "../componentes/BloqueRecomendacion";
 import { ProductoTile } from "../componentes/ProductoTile";
 import { Ticket } from "../componentes/Ticket";
@@ -184,6 +185,8 @@ export default function Mostrador() {
             </p>
           </section>
         )}
+
+        {!seleccionado && <EsperaHerramientas />}
 
         {seleccionado && (
           <>

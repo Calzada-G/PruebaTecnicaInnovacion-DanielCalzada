@@ -58,7 +58,7 @@ export function TablaCatalogo({
   return (
     <table className="w-full table-fixed border-collapse">
       <thead>
-        <tr className="border-b border-linea bg-papel/60 text-left text-[11px] uppercase tracking-wide text-acero">
+        <tr className="cabecera text-left text-[11px] uppercase">
           <th className="w-[44%] px-3 py-2 font-medium">Producto</th>
           <th className="hidden w-[26%] px-3 py-2 font-medium lg:table-cell">
             Para qué sirve

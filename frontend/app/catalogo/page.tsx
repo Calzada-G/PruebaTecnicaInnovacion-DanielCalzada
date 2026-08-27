@@ -204,8 +204,7 @@ export default function Catalogo() {
       <section className="tarjeta p-4">
         <h1 className="text-base font-semibold">Catálogo</h1>
         <p className="mt-1 max-w-3xl text-sm text-acero">
-          Existencias compartidas por las 5 sucursales. Lo que cambies aquí se
-          refleja de inmediato en el mostrador y en las sugerencias.
+          Existencias compartidas por las 5 sucursales. Crea, elimina y actualiza productos.
         </p>
         <p className="mt-2 text-xs text-acero">
           <span className="cifra font-medium text-tinta">{activos}</span> productos

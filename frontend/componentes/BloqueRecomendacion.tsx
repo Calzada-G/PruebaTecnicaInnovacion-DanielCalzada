@@ -3,8 +3,8 @@
 /**
  * Bloque de recomendaciones. Componente de presentacion puro.
  *
- * Cada tarjeta muestra SIEMPRE de donde sale la sugerencia y por que. No es
- * adorno: el vendedor tiene que poder repetirle el motivo al cliente, y el
+ * Cada tarjeta muestra SIEMPRE de donde sale la sugerencia y por que.
+ * El vendedor tiene que poder repetirle el motivo al cliente, y el
  * negocio tiene que poder auditar de donde salio.
  */
 
