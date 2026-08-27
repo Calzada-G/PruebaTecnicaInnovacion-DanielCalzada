@@ -3,11 +3,31 @@
 import sqlite3
 
 
-def existe_tienda(bd: sqlite3.Connection, tienda_id: str) -> bool:
-    return (
-        bd.execute("SELECT 1 FROM tiendas WHERE id = ?", (tienda_id,)).fetchone()
-        is not None
-    )
+def contar_tickets(bd: sqlite3.Connection, tienda_id: str | None = None) -> int:
+    """Tickets distintos, en toda la cadena o en una plaza.
+
+    Cero en una plaza no es un dato mas: significa que ninguna regla de
+    asociacion puede hablar de esa sucursal. Es el caso de Merida.
+    """
+    if tienda_id is None:
+        sql, parametros = "SELECT COUNT(DISTINCT ticket_id) AS n FROM ventas", ()
+    else:
+        sql = "SELECT COUNT(DISTINCT ticket_id) AS n FROM ventas WHERE tienda_id = ?"
+        parametros = (tienda_id,)
+    return bd.execute(sql, parametros).fetchone()["n"]
+
+
+def unidades_por_sku(
+    bd: sqlite3.Connection, tienda_id: str | None = None
+) -> dict[str, int]:
+    """Piezas vendidas por SKU. Solo aparecen los que se vendieron alguna vez."""
+    if tienda_id is None:
+        sql, parametros = "SELECT sku, SUM(cantidad) AS n FROM ventas GROUP BY sku", ()
+    else:
+        sql = """SELECT sku, SUM(cantidad) AS n FROM ventas
+                  WHERE tienda_id = ? GROUP BY sku"""
+        parametros = (tienda_id,)
+    return {f["sku"]: f["n"] for f in bd.execute(sql, parametros)}
 
 
 def siguiente_ticket(bd: sqlite3.Connection) -> str:

@@ -37,6 +37,26 @@ def bd(ruta_bd: Path):
 
 
 @pytest.fixture()
+def con_relaciones(bd):
+    """Base sembrada y con la tabla `relaciones` ya construida.
+
+    Equivale a haber corrido scripts/construir_relaciones.py. Varios tests lo
+    necesitaban y cada uno repetia el mismo bloque de seis lineas.
+    """
+    from app.recomendador.historico import calcular_reglas
+    from app.repositories import relaciones_repo
+    from scripts.construir_relaciones import relaciones_por_atributos
+
+    combinadas = {}
+    for regla in relaciones_por_atributos(bd) + calcular_reglas(bd):
+        combinadas[(regla["sku_origen"], regla["sku_destino"], regla["tipo"])] = regla
+    bd.execute("BEGIN IMMEDIATE")
+    relaciones_repo.reemplazar(bd, list(combinadas.values()))
+    bd.commit()
+    return bd
+
+
+@pytest.fixture()
 def cliente(ruta_bd: Path):
     from fastapi.testclient import TestClient
 

@@ -43,7 +43,10 @@ type Recomendacion = {
   complementos: Candidato[];
 };
 
-export type LineaTicket = {
+/** Linea ya cobrada, tal como la devuelve la API. No es la del ticket en
+ *  curso: esa vive en lib/ticket-context y todavia no tiene subtotal ni
+ *  stock restante porque nadie la ha descontado. */
+export type LineaCobrada = {
   sku: string;
   nombre: string;
   cantidad: number;
@@ -56,7 +59,7 @@ export type CompraRespuesta = {
   ticket_id: string;
   tienda: string;
   fecha: string;
-  lineas: LineaTicket[];
+  lineas: LineaCobrada[];
   total: number;
   repetida: boolean;
 };
@@ -79,6 +82,29 @@ export type Relacion = {
   nombre_destino: string;
   stock_destino: number;
   activo_destino: boolean;
+};
+
+/** Un problema o una oportunidad que el sistema detecta solo, sin que nadie
+ *  lo capture: falta de historico, agotados, huecos del catalogo por plaza. */
+export type Hallazgo = {
+  clave: string;
+  nivel: "alerta" | "aviso" | "oportunidad";
+  titulo: string;
+  detalle: string;
+  accion: string;
+  /** Productos afectados en total; `productos` trae solo los primeros. */
+  total: number;
+  productos: { sku: string; nombre: string }[];
+};
+
+export type Diagnostico = {
+  tienda: string;
+  nombre: string;
+  perfil: string;
+  tickets_en_la_plaza: number;
+  tickets_en_la_cadena: number;
+  productos_activos: number;
+  hallazgos: Hallazgo[];
 };
 
 /** Error de negocio con los datos que el mostrador necesita para el mensaje. */
@@ -168,6 +194,9 @@ export const api = {
     if (excluir.length) p.set("excluir", excluir.join(","));
     return pedir<Recomendacion>(`/api/recomendaciones?${p}`);
   },
+
+  diagnostico: (tienda: string) =>
+    pedir<Diagnostico>(`/api/diagnostico?${new URLSearchParams({ tienda })}`),
 
   comprar: (
     tienda: string,

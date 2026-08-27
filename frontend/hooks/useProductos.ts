@@ -33,6 +33,7 @@ export function useCatalogo() {
     cliente.invalidateQueries({ queryKey: ["producto"] });
     cliente.invalidateQueries({ queryKey: ["recomendaciones"] });
     cliente.invalidateQueries({ queryKey: ["relaciones"] });
+    cliente.invalidateQueries({ queryKey: ["diagnostico"] });
   };
 
   const crear = useMutation({

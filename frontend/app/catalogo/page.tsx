@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { Plus, Search, X } from "lucide-react";
+import { PanelDiagnostico } from "../../componentes/PanelDiagnostico";
 import { TablaCatalogo } from "../../componentes/TablaCatalogo";
+import { useDiagnostico } from "../../hooks/useDiagnostico";
 import { useCatalogo, useProductos } from "../../hooks/useProductos";
 import { ErrorApi, type Producto } from "../../lib/api";
 import { useAvisos } from "../../lib/notificaciones";
@@ -103,7 +105,7 @@ const CAMPOS = [
 ] as const;
 
 export default function Catalogo() {
-  const { tiendaId } = useTienda();
+  const { tiendaId, tienda } = useTienda();
   const { notificar } = useAvisos();
   const [consulta, setConsulta] = useState("");
   const [alta, setAlta] = useState(false);
@@ -114,6 +116,8 @@ export default function Catalogo() {
   // revertirlo tiene que ser operable.
   const { data: productos = [], isLoading } = useProductos(consulta, tiendaId, true);
   const { crear, actualizar, eliminar } = useCatalogo();
+  const { data: diagnostico, isPending: revisando, isError: fallo } =
+    useDiagnostico(tiendaId);
 
   const activos = productos.filter((p) => p.activo).length;
   const agotados = productos.filter((p) => p.activo && p.stock === 0).length;
@@ -224,6 +228,16 @@ export default function Catalogo() {
           )}
         </p>
       </section>
+
+      {/* Debajo de la cabecera y a lo ancho: el catalogo sin el diagnostico es
+          una tabla; con el, es una lista de trabajo priorizada por plaza. */}
+      <PanelDiagnostico
+        nombreTienda={tienda?.nombre ?? ""}
+        hallazgos={diagnostico?.hallazgos ?? []}
+        ticketsEnLaPlaza={diagnostico?.tickets_en_la_plaza ?? 0}
+        cargando={revisando}
+        fallo={fallo}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="tarjeta flex items-center gap-2 px-2.5 py-1.5">

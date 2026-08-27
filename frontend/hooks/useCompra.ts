@@ -24,6 +24,9 @@ export function useCompra() {
       cliente.invalidateQueries({ queryKey: ["productos"] });
       cliente.invalidateQueries({ queryKey: ["producto"] });
       cliente.invalidateQueries({ queryKey: ["recomendaciones"] });
+      // Cobrar cambia existencias y ventas por plaza: las dos cosas que
+      // el diagnostico del catalogo esta mirando.
+      cliente.invalidateQueries({ queryKey: ["diagnostico"] });
     },
   });
 }

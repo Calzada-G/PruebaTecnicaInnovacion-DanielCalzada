@@ -42,7 +42,14 @@ RUTAS = [
     ("POST", "/api/compras", {"tienda": "cdmx", "items": [{"sku": "SKU001", "cantidad": 0}]}, 422),
     ("GET", "/api/relaciones", None, 200),
     ("PATCH", "/api/relaciones/999999", {"estado": "activa"}, 404),
+    ("GET", "/api/diagnostico?tienda=merida", None, 200),
+    ("GET", "/api/diagnostico?tienda=narnia", None, 404),
+    ("GET", "/api/diagnostico", None, 422),
     ("GET", "/api/config/pesos", None, 200),
+    ("GET", "/api/salud", None, 200),
+    # La portada no es JSON, pero un 404 en la raiz es lo primero que ve quien
+    # abre localhost:8000 en el navegador.
+    ("GET", "/", None, 200),
     ("PUT", "/api/config/pesos", {"pesos": {"historico": 1.0}}, 200),
 ]
 
@@ -99,19 +106,8 @@ def test_el_json_expone_exactamente_los_campos_del_contrato(cliente, ruta, campo
     assert set(objeto) == campos
 
 
-def test_activo_viaja_como_booleano_en_todos_los_endpoints(bd, cliente):
+def test_activo_viaja_como_booleano_en_todos_los_endpoints(con_relaciones, cliente):
     """El mismo concepto no puede ser bool en una ruta y 0/1 en otra."""
-    from app.recomendador.historico import calcular_reglas
-    from app.repositories import relaciones_repo
-    from scripts.construir_relaciones import relaciones_por_atributos
-
-    combinadas = {}
-    for r in relaciones_por_atributos(bd) + calcular_reglas(bd):
-        combinadas[(r["sku_origen"], r["sku_destino"], r["tipo"])] = r
-    bd.execute("BEGIN IMMEDIATE")
-    relaciones_repo.reemplazar(bd, list(combinadas.values()))
-    bd.commit()
-
     producto = cliente.get("/api/productos/SKU001").json()
     relacion = cliente.get("/api/relaciones").json()[0]
 
@@ -119,18 +115,9 @@ def test_activo_viaja_como_booleano_en_todos_los_endpoints(bd, cliente):
     assert isinstance(relacion["activo_destino"], bool)
 
 
-def test_el_patch_de_relaciones_devuelve_la_misma_forma_que_el_listado(bd, cliente):
-    from app.recomendador.historico import calcular_reglas
-    from app.repositories import relaciones_repo
-    from scripts.construir_relaciones import relaciones_por_atributos
-
-    combinadas = {}
-    for r in relaciones_por_atributos(bd) + calcular_reglas(bd):
-        combinadas[(r["sku_origen"], r["sku_destino"], r["tipo"])] = r
-    bd.execute("BEGIN IMMEDIATE")
-    relaciones_repo.reemplazar(bd, list(combinadas.values()))
-    bd.commit()
-
+def test_el_patch_de_relaciones_devuelve_la_misma_forma_que_el_listado(
+    con_relaciones, cliente
+):
     del_listado = cliente.get("/api/relaciones").json()[0]
     del_patch = cliente.patch(
         f"/api/relaciones/{del_listado['id']}", json={"estado": "fijada"}
