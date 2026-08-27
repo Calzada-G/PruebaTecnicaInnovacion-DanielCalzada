@@ -39,12 +39,16 @@ type Props = {
 };
 
 const ESTILO = {
-  alerta: { color: "var(--color-error)", fondo: "#fef2f2", icono: AlertTriangle },
-  aviso: { color: "var(--color-alerta)", fondo: "#fffbeb", icono: Info },
-  oportunidad: { color: "var(--color-exito)", fondo: "#f0fdf4", icono: Sparkles },
+  alerta: { color: "var(--color-error)", icono: AlertTriangle },
+  aviso: { color: "var(--color-alerta)", icono: Info },
+  oportunidad: { color: "var(--color-exito)", icono: Sparkles },
 } as const;
 
 const CLAVE = "ferreteria.mejoras-ocultas";
+
+// Con cuatro tarjetas por fila no cabe la lista entera de SKUs, y tampoco hace
+// falta: el panel dice que revisar, el detalle esta en la tabla de abajo.
+const MAXIMO_CHIPS = 4;
 
 export function PanelDiagnostico({
   nombreTienda,
@@ -120,57 +124,61 @@ export function PanelDiagnostico({
         </p>
       )}
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {hallazgos.map((hallazgo) => {
           const estilo = ESTILO[hallazgo.nivel];
           const Icono = estilo.icono;
+          const chips = hallazgo.productos.slice(0, MAXIMO_CHIPS);
+          const restantes = hallazgo.total - chips.length;
           return (
             <article
               key={hallazgo.clave}
-              className="tarjeta tarjeta-activa aparece flex flex-col gap-1.5 p-2.5"
-              style={{ borderColor: estilo.color, background: estilo.fondo }}
+              className="tarjeta tarjeta-activa aparece flex flex-col gap-1 py-2 pl-2.5 pr-2.5"
+              // Una barra de color en el canto en vez de tintar la tarjeta
+              // entera: con cuatro seguidas, cuatro bloques de color compiten
+              // con la tabla y ninguno destaca.
+              style={{ borderLeft: `3px solid ${estilo.color}` }}
             >
-              <h3 className="flex items-start gap-1.5 text-xs font-semibold leading-snug">
+              <h3 className="flex items-start gap-1.5 text-[12px] font-semibold leading-tight">
                 <Icono
-                  size={14}
+                  size={13}
                   className="mt-px shrink-0"
                   style={{ color: estilo.color }}
                   aria-hidden
                 />
-                {hallazgo.titulo}
+                <span className="recorta-2 min-w-0">{hallazgo.titulo}</span>
               </h3>
 
               <p
-                className="recorta-3 text-[11px] leading-snug text-acero"
+                className="recorta-2 text-[11px] leading-snug text-acero"
                 title={hallazgo.detalle}
               >
                 {hallazgo.detalle}
               </p>
 
-              {hallazgo.productos.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {hallazgo.productos.map((producto) => (
+              {chips.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1">
+                  {chips.map((producto) => (
                     <span
                       key={producto.sku}
                       title={producto.nombre}
-                      className="cifra rounded border border-linea bg-white px-1.5 py-0.5 text-[10px]"
+                      className="cifra rounded bg-papel px-1 py-px text-[10px] text-acero"
                     >
                       {producto.sku}
                     </span>
                   ))}
-                  {hallazgo.total > hallazgo.productos.length && (
-                    <span className="px-1 py-0.5 text-[10px] text-acero">
-                      y {hallazgo.total - hallazgo.productos.length} más
-                    </span>
+                  {restantes > 0 && (
+                    <span className="cifra text-[10px] text-acero">+{restantes}</span>
                   )}
                 </div>
               )}
 
-              {/* mt-auto: la acción queda a la misma altura en todas las
-                  tarjetas de la fila aunque los textos midan distinto. */}
+              {/* mt-auto: la acción queda a la misma altura en las cuatro
+                  tarjetas aunque los textos de arriba midan distinto. */}
               <p
-                className="mt-auto pt-0.5 text-[11px] font-medium leading-snug"
+                className="recorta-2 mt-auto border-t border-linea pt-1.5 text-[11px] font-medium leading-snug"
                 style={{ color: estilo.color }}
+                title={hallazgo.accion}
               >
                 {hallazgo.accion}
               </p>
