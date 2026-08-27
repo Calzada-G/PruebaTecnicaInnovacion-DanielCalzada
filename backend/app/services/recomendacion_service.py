@@ -6,7 +6,7 @@ from ..errores import ProductoNoEncontrado, TiendaNoEncontrada
 from ..recomendador.atributos import AtributosStrategy, familia
 from ..recomendador.historico import HistoricoStrategy
 from ..recomendador.ranking import mezclar
-from ..repositories import productos_repo, relaciones_repo, ventas_repo
+from ..repositories import productos_repo, relaciones_repo, tiendas_repo
 
 
 def _comprables(bd: sqlite3.Connection) -> set[str]:
@@ -28,7 +28,7 @@ def recomendar(
 ) -> dict:
     if productos_repo.obtener(bd, sku) is None:
         raise ProductoNoEncontrado(sku)
-    if not ventas_repo.existe_tienda(bd, tienda):
+    if tiendas_repo.obtener(bd, tienda) is None:
         raise TiendaNoEncontrada(tienda)
 
     return mezclar(

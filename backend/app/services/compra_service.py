@@ -15,7 +15,7 @@ from ..errores import (
     StockInsuficiente,
     TiendaNoEncontrada,
 )
-from ..repositories import productos_repo, ventas_repo
+from ..repositories import productos_repo, tiendas_repo, ventas_repo
 
 
 def _agrupar(items: list[dict]) -> dict[str, int]:
@@ -43,7 +43,7 @@ def comprar(
     # sin esto dos tickets podrian leer el mismo stock antes de escribir.
     cur.execute("BEGIN IMMEDIATE")
     try:
-        if not ventas_repo.existe_tienda(bd, tienda):
+        if tiendas_repo.obtener(bd, tienda) is None:
             raise TiendaNoEncontrada(tienda)
 
         if clave_idempotencia and not ventas_repo.reservar_clave(

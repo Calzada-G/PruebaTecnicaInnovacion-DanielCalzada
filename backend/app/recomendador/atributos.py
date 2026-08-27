@@ -12,6 +12,7 @@ el negocio pueda discutirlas sin leer el resto del codigo.
 
 import sqlite3
 
+from ..repositories import tiendas_repo
 from .base import Candidato
 from .perfiles import (
     AMBIENTE_TEXTO,
@@ -151,9 +152,7 @@ class AtributosStrategy:
                      FROM productos"""
             ).fetchall()
         }
-        self._perfiles = {
-            f["id"]: f["perfil"] for f in bd.execute("SELECT id, perfil FROM tiendas")
-        }
+        self._perfiles = tiendas_repo.perfiles(bd)
         self._rasgos = {
             sku: (
                 actividad(p["categoria"], p["uso_recomendado"], p["nombre"]),
