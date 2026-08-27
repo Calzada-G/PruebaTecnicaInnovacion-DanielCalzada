@@ -3,7 +3,7 @@
 import sqlite3
 
 from ..errores import ProductoNoEncontrado, TiendaNoEncontrada
-from ..recomendador.atributos import AtributosStrategy
+from ..recomendador.atributos import AtributosStrategy, familia
 from ..recomendador.historico import HistoricoStrategy
 from ..recomendador.ranking import mezclar
 from ..repositories import productos_repo, relaciones_repo, ventas_repo
@@ -40,4 +40,7 @@ def recomendar(
         comprables=_comprables(bd),
         excluir=excluir or set(),
         limite=limite,
+        # El servicio inyecta el conocimiento de familias: asi ranking.py sigue
+        # sin depender de ninguna fuente concreta.
+        misma_familia=lambda a, b: familia(a) is not None and familia(a) == familia(b),
     )

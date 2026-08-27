@@ -5,6 +5,8 @@ deliberado: el requisito de no recomendar nunca un producto agotado se cumple
 o se rompe aqui, y asi hay un solo sitio que auditar y que testear.
 """
 
+from collections.abc import Callable
+
 from .base import Candidato, FuenteRecomendacion
 
 # Una relacion fijada por el negocio manda sobre cualquier score calculado.
@@ -38,6 +40,7 @@ def mezclar(
     # (dos varillas de soldar) dejando fuera el accesorio y el EPP, que es
     # justo lo que el vendedor no tiene presente.
     limite: int = 6,
+    misma_familia: Callable[[str, str], bool] | None = None,
 ) -> dict:
     mejores: dict[tuple[str, str], tuple[float, Candidato]] = {}
 
@@ -48,6 +51,19 @@ def mezclar(
             if candidato.sku == sku or candidato.sku in excluir:
                 continue
             if candidato.sku not in comprables:
+                continue
+
+            # Dos productos de la misma familia son alternativas, nunca se
+            # llevan juntos. El historico si puede proponerlo (alguien compro
+            # tornillo de carbon y galvanizado en el mismo ticket), y hacerle
+            # caso daria un consejo contradictorio: "cambialo por el inox" y
+            # "llevate tambien el galvanizado" a la vez. La regla se aplica
+            # aqui, sobre todas las fuentes, y no dentro de una sola.
+            if (
+                candidato.tipo == "complemento"
+                and misma_familia
+                and misma_familia(sku, candidato.sku)
+            ):
                 continue
 
             ajuste = ajustes.get((sku, candidato.sku, candidato.tipo))

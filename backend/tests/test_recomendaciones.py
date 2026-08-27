@@ -129,6 +129,22 @@ def test_el_regulador_sin_ventas_se_recomienda_con_el_soplete(bd_con_relaciones)
         assert "SKU027" in recomendados
 
 
+def test_nunca_ofrece_como_complemento_algo_de_la_misma_familia(bd_con_relaciones):
+    """SKU005 y SKU006 co-ocurren en T036, pero son alternativas entre si.
+
+    Si el historico colara ese par como complemento, en Merida el sistema
+    diria a la vez 'cambialo por el inoxidable' y 'llevate el galvanizado'.
+    """
+    for ancla, tienda in (("SKU005", "merida"), ("SKU005", "cdmx"), ("SKU010", "cancun")):
+        resultado = recomendacion_service.recomendar(bd_con_relaciones, ancla, tienda)
+        complementos = {c["sku"] for c in resultado["complementos"]}
+        familia = {
+            "SKU005": {"SKU006", "SKU007"},
+            "SKU010": {"SKU011"},
+        }[ancla]
+        assert not (complementos & familia), f"{ancla}@{tienda}: {complementos & familia}"
+
+
 def test_bloquear_una_relacion_la_saca_del_mostrador(bd_con_relaciones):
     bd = bd_con_relaciones
     assert "SKU004" in skus_recomendados(
