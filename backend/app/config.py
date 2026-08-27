@@ -46,7 +46,12 @@ ORIGENES_CORS = [
 ]
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-# Alias que Google mantiene apuntando al flash estable vigente. Fijar una
-# version concreta condena el script a romperse: 'gemini-2.0-flash' ya devuelve
-# 404 contra la API actual.
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest").strip()
+# Se elige por CUOTA, no por capacidad. En el tier gratuito el flash puntero
+# (3.7, al que apunta el alias gemini-flash-latest) da 5 peticiones por minuto
+# y 20 al dia; 3.1 Flash Lite da 15 y 500. Reescribir una frase de una linea no
+# necesita el modelo mas capaz, y 148 relaciones no caben en 20 peticiones.
+#
+# El coste de fijar version es que caduca (gemini-2.0-flash ya devuelve 404).
+# Se asume a conciencia: si un dia falla, el script lo dice, no escribe nada y
+# el sistema sigue con las plantillas.
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite").strip()
