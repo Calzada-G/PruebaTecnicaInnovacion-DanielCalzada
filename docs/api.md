@@ -13,17 +13,18 @@ Swagger no puede contar: el porqué.
 ## Índice
 
 1. [Convenciones](#1-convenciones)
-2. [Por qué son quince operaciones y no más](#2-por-qué-son-quince-operaciones-y-no-más)
+2. [Por qué son diecisiete operaciones y no más](#2-por-qué-son-diecisiete-operaciones-y-no-más)
 3. [Catálogo — `/api/productos`](#3-catálogo--apiproductos)
 4. [Cobro — `/api/compras`](#4-cobro--apicompras)
 5. [Recomendaciones — `/api/recomendaciones`](#5-recomendaciones--apirecomendaciones)
 6. [Relaciones y pesos — `/api/relaciones`, `/api/config/pesos`](#6-relaciones-y-pesos)
 7. [Diagnóstico — `/api/diagnostico`](#7-diagnóstico--apidiagnostico)
-8. [Sucursales — `/api/tiendas`](#8-sucursales--apitiendas)
-9. [Estado — `/` y `/api/salud`](#9-estado--y-apisalud)
-10. [Qué es `additionalProp1`](#10-qué-es-additionalprop1)
-11. [Decisiones REST y por qué](#11-decisiones-rest-y-por-qué)
-12. [Cómo probar todo esto](#12-cómo-probar-todo-esto)
+8. [Análisis con IA — `/api/analisis`](#8-análisis-con-ia--apianalisis)
+9. [Sucursales — `/api/tiendas`](#9-sucursales--apitiendas)
+10. [Estado — `/` y `/api/salud`](#10-estado--y-apisalud)
+11. [Qué es `additionalProp1`](#11-qué-es-additionalprop1)
+12. [Decisiones REST y por qué](#12-decisiones-rest-y-por-qué)
+13. [Cómo probar todo esto](#13-cómo-probar-todo-esto)
 
 ---
 
@@ -90,9 +91,9 @@ en una frase cuando solo hay que enseñar un aviso.
 
 ---
 
-## 2. Por qué son quince operaciones y no más
+## 2. Por qué son diecisiete operaciones y no más
 
-Cada una existe porque algo concreto la llama. Trece las consume la interfaz;
+Cada una existe porque algo concreto la llama. Quince las consume la interfaz;
 dos son para el operador.
 
 | # | Operación | Quién la usa | Qué se rompe sin ella |
@@ -109,18 +110,20 @@ dos son para el operador.
 | 10 | `GET /api/config/pesos` | Modo activo en Relaciones | El panel no sabría qué preajuste está puesto |
 | 11 | `PUT /api/config/pesos` | Los tres preajustes | No se podría decidir cuánto pesa la evidencia frente al criterio |
 | 12 | `GET /api/diagnostico` | Banda de mejoras del Catálogo | Nadie sabría que Mérida no tiene ventas ni qué falta por dar de alta |
-| 13 | `GET /api/tiendas` | Selector de sucursal | Es la **primera** llamada: sin ella no hay `tienda` que mandar |
-| 14 | `GET /api/salud` | **Nadie desde la interfaz.** El operador | Nada, funcionalmente. Es lo que responde «¿está viva y sembrada?» sin abrir la UI, y lo que consultaría un monitor o el *healthcheck* de un contenedor |
-| 15 | `GET /` | Una persona con un navegador | Nada. Antes devolvía `{"detail":"Not Found"}`, que no dice si la API arrancó bien |
+| 13 | `GET /api/analisis?tienda=` | Panel de Relaciones | No se vería el último análisis sin volver a pagarlo |
+| 14 | `POST /api/analisis` | Botón «Analizar el sistema» | La única llamada a un modelo del proyecto |
+| 15 | `GET /api/tiendas` | Selector de sucursal | Es la **primera** llamada: sin ella no hay `tienda` que mandar |
+| 16 | `GET /api/salud` | **Nadie desde la interfaz.** El operador | Nada, funcionalmente. Es lo que responde «¿está viva y sembrada?» sin abrir la UI, y lo que consultaría un monitor o el *healthcheck* de un contenedor |
+| 17 | `GET /` | Una persona con un navegador | Nada. Antes devolvía `{"detail":"Not Found"}`, que no dice si la API arrancó bien |
 
-**Las 14 y 15 son las únicas que no consume el frontend, y es a propósito.** Un
+**Las 16 y 17 son las únicas que no consume el frontend, y es a propósito.** Un
 servicio que no sabe decir en qué estado está solo se diagnostica leyendo logs.
 
 **Lo que deliberadamente NO existe**, aunque cabría esperarlo:
 
 - `GET /api/compras` (historial de tickets) — los datos ya están en `ventas`,
   pero nada los pide todavía. Está en el README como lo primero que se añadiría.
-- `PUT /api/productos/{sku}` — sobra teniendo `PATCH`. Ver §11.
+- `PUT /api/productos/{sku}` — sobra teniendo `PATCH`. Ver §12.
 - `DELETE /api/relaciones/{id}` — una relación no se borra, se **bloquea**: si
   se borrara, la siguiente reconstrucción la traería de vuelta como si nadie la
   hubiera rechazado nunca.
@@ -462,7 +465,92 @@ test lo comprueba cobrando ahí.
 
 ---
 
-## 8. Sucursales — `/api/tiendas`
+## 8. Análisis con IA — `/api/analisis`
+
+La **única** llamada a un modelo de lenguaje del proyecto. Y no reescribe
+textos: lee los números y dice qué significan.
+
+### Qué hace distinto al recomendador
+
+| | Recomendador | Analista |
+|---|---|---|
+| Responde | «¿qué más ofrecerle a este cliente?» | «¿cómo va esta sucursal?» |
+| Cómo | determinista, evaluable, sin red | una consulta al modelo |
+| Cuándo | en cada búsqueda del mostrador | cuando el encargado lo pide |
+| Decide qué se vende | **sí** | **no** |
+
+El modelo recibe un retrato de la plaza con **las cuentas ya hechas** —valor
+inmovilizado, participación en ventas, ticket promedio, concentración, rotación,
+cobertura del recomendador— y los hallazgos que el diagnóstico automático ya
+detectó, para que no los repita. Un modelo sumando columnas se equivoca y no hay
+forma de saberlo; un modelo explicando una suma que ya viene hecha, no.
+
+### `GET /api/analisis?tienda=`
+
+Devuelve lo último que se analizó. **Nunca consulta al modelo.**
+
+```json
+{ "tienda": "merida", "disponible": true, "hay_analisis": true,
+  "huella_actual": "2fa03dfffb3761b803d157789e651e59",
+  "vigente": true, "desde_cache": true,
+  "modelo": "gemini-3.1-flash-lite", "generado_en": "2026-08-27 20:42:36",
+  "analisis": {
+    "resumen": "La sucursal en Mérida no ha generado ventas…",
+    "negocio": [ { "titulo": "Inventario totalmente inmovilizado",
+                   "analisis": "El valor total está estancado sin rotación…",
+                   "dato": "290450.0", "impacto": "alto",
+                   "skus": ["SKU018", "SKU019"] } ],
+    "sistema": [ { "titulo": "Dependencia total de deducciones",
+                   "analisis": "Al no existir tickets en esta plaza…",
+                   "dato": "0", "impacto": "alto", "skus": [] } ],
+    "decisiones": [ { "titulo": "Priorizar registro de ventas",
+                      "porque": "El sistema no puede optimizar sin datos reales.",
+                      "accion": "Capturar cada operación desde el primer día." } ] } }
+```
+
+`vigente` es el campo importante: dice si ese análisis **sigue describiendo el
+sistema actual**. Es lo que apaga el botón cuando no hay nada nuevo.
+
+### `POST /api/analisis` → `200`
+
+```json
+{ "tienda": "merida" }
+```
+
+**Solo llama al modelo si el sistema cambió.** Antes de preguntar se calcula la
+*huella* del estado: catálogo, precios, existencias, ventas por plaza,
+relaciones, bloqueos del negocio y pesos. Si coincide con la del último análisis
+guardado, se devuelve ese con `desde_cache: true` **sin consumir un token**.
+
+Medido contra el modelo real:
+
+| | Tiempo | Consulta al modelo |
+|---|---:|---|
+| Primera llamada | 38 s | sí |
+| Segunda, sin cambios | 0.3 s | **no** |
+| Tras cambiar un precio | — | `vigente` pasa a `false` y el botón se reactiva |
+| Al revertir ese precio | — | **la misma huella**: se reutiliza el análisis anterior |
+
+La garantía vive en el servidor, no en el botón: así no depende de que ningún
+cliente se acuerde de comprobarlo.
+
+Es `POST` y no `GET` porque puede tener efectos —gasta cuota y escribe una
+fila—. `GET` es la lectura pura.
+
+**Qué pasa si no hay clave.** `disponible: false` y todo lo demás del sistema
+funciona igual. Intentar generar responde `503`, no `500`: el sistema está bien,
+lo que falta es un servicio externo y opcional.
+
+**Lo que devuelva el modelo se recorta antes de guardarse**: máximo cuatro
+puntos por sección, títulos y textos acotados, `impacto` fuera del catálogo cae
+a `medio`, y un punto sin análisis o sin acción se descarta. Un texto de 4000
+caracteres no puede romper la pantalla del encargado ni quedar guardado como si
+fuera válido.
+
+---
+
+
+## 9. Sucursales — `/api/tiendas`
 
 ### `GET /api/tiendas`
 
@@ -486,7 +574,7 @@ está, y `tienda` es obligatorio en casi todo lo demás.
 
 ---
 
-## 9. Estado — `/` y `/api/salud`
+## 10. Estado — `/` y `/api/salud`
 
 ### `GET /` → HTML
 
@@ -523,7 +611,7 @@ cosa, el dato dejaría de servir para diagnosticar nada.
 
 ---
 
-## 10. Qué es `additionalProp1`
+## 11. Qué es `additionalProp1`
 
 Aparece en `/docs`, en `/api/config/pesos`:
 
@@ -568,7 +656,7 @@ responde `422` en lugar de crear basura en la configuración.
 
 ---
 
-## 11. Decisiones REST y por qué
+## 12. Decisiones REST y por qué
 
 | Decisión | Por qué |
 |---|---|
@@ -586,7 +674,7 @@ responde `422` en lugar de crear basura en la configuración.
 
 ---
 
-## 12. Cómo probar todo esto
+## 13. Cómo probar todo esto
 
 **Con la documentación interactiva** — `http://localhost:8000/docs`, botón
 *Try it out* en cualquier ruta. Cada operación trae su descripción, sus
@@ -597,7 +685,7 @@ parámetros explicados y los códigos de error que puede devolver.
 ```bash
 cd backend
 pytest -v tests/test_contrato_api.py    # el contrato completo, ruta por ruta
-pytest -v                               # 67 tests, incluidos los 50 hilos
+pytest -v                               # 84 tests, incluidos los 50 hilos
 ```
 
 `test_contrato_api.py` fija el código de estado de **cada** ruta y la forma

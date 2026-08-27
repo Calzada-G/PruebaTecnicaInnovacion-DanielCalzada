@@ -127,7 +127,7 @@ export default function Mostrador() {
         {!seleccionado && (
           <section className="tarjeta aparece p-5">
             <h1 className="text-lg font-semibold">
-              {momento}. Estás en{" "}
+              {momento}. Estás en la sucursal{" "}
               <span style={{ color: "var(--color-acento)" }}>
                 {tienda?.nombre ?? "…"}
               </span>
@@ -155,7 +155,7 @@ export default function Mostrador() {
                 {
                   titulo: "2 · Revisa las sugerencias",
                   texto:
-                    "Cada una dice de dónde sale: de las ventas o del tipo de producto.",
+                    "Cada una sale de las ventas o del tipo de producto.",
                 },
                 {
                   titulo: "3 · Cobra",
@@ -180,8 +180,7 @@ export default function Mostrador() {
             </div>
 
             <p className="mt-4 text-xs text-acero">
-              El ticket se conserva aunque te vayas al catálogo o a las
-              relaciones. Solo se vacía al cambiar de sucursal.
+              El ticket se conserva aunque cambies de interaz. Solo se vacía al cambiar de sucursal.
             </p>
           </section>
         )}

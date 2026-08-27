@@ -145,6 +145,33 @@ navegador repartía a ojo y le daba a *para qué sirve* el espacio que necesitab
 el nombre, que es la columna por la que el encargado localiza lo que viene a
 corregir. El nombre ocupa el 44 % y se lee en dos líneas en vez de cortarse.
 
+### Los tres modos tenían que hacer algo, y no lo hacían
+
+El panel ofrece tres modos —*Solo lo comprobado*, *Equilibrado*, *Descubrir
+más*— que guardan un peso por fuente. Al medirlos: de **140 consultas** (28
+productos × 5 plazas), los tres devolvían **exactamente el mismo conjunto** de
+sugerencias. Solo cambiaba el orden.
+
+La causa: un peso **multiplica el puntaje**, y como casi ningún producto tiene
+más de seis candidatos, el tope nunca recorta. Nadie entra ni sale.
+
+El arreglo es que el peso decida también **cuánta evidencia se exige**: un corte
+relativo al mejor candidato de cada consulta, derivado de los pesos que ya
+existían —cuanto más se prioriza el histórico sobre los atributos, más exigente—.
+Relativo y no absoluto, para que Mérida, que no tiene un solo ticket, se quede
+con sus sugerencias por atributos en vez de quedarse en blanco.
+
+Con eso, entre *Solo lo comprobado* y *Descubrir más* cambia el conjunto en
+**110 de 140** consultas, y cada tarjeta muestra su efecto medido. `test_modos.py`
+lo fija para que no vuelva a ser decorativo.
+
+**Lo que sí cambia con la sucursal es el sustituto** (14 de 28 productos), que es
+donde la plaza manda: el material que aguanta ahí. Los complementos **no**
+cambian por plaza, y es correcto: responden a qué trabajo está haciendo el
+cliente, no al clima. Ordenarlos por lo que más se vende en cada plaza habría
+sido fácil, pero mete ventas de la propia plaza en el orden y **filtraría datos
+en la evaluación**, inflando la métrica.
+
 ### Relaciones: por qué ya no es una tabla de métricas
 
 La primera versión mostraba `soporte`, `confianza`, `lift`, `score` y
@@ -178,7 +205,7 @@ que parecería «muy débil», muestran **«Según la plaza»**.
 
 ```bash
 cd backend
-pytest -v                    # 67 tests, incluye 50 hilos contra stock 8
+pytest -v                    # 84 tests, incluye 50 hilos contra stock 8
 python scripts/evaluar.py    # tabla real contra 4 baselines
 ```
 
@@ -189,6 +216,8 @@ python scripts/evaluar.py    # tabla real contra 4 baselines
 | `test_crud.py` | CRUD a nivel de servicio y borrado lógico |
 | `test_crud_api.py` | **Ciclo completo por HTTP**: alta → edición → baja → reactivación → venta, y el efecto de cada operación sobre lo que el mostrador puede vender y recomendar |
 | `test_contrato_api.py` | **El contrato que consume el frontend**: código de estado de las 36 rutas, forma exacta del JSON, y que `activo` sea booleano en todos los endpoints |
+| `test_modos.py` | **Que los tres modos del panel cambien qué se ofrece, no solo el orden**: una vez no lo hacían, y este test existe para que no vuelva a pasar |
+| `test_analisis.py` | Que el análisis con IA no consulte dos veces por lo mismo, que una venta o un cambio de precio lo invaliden, y que una respuesta desbordada del modelo se recorte |
 | `test_diagnostico.py` | Que los hallazgos salgan de los datos: Mérida deja de reportarse sin historial en cuanto se cobra ahí, agotar un producto lo convierte en hallazgo, y un paquete nunca se propone con una pieza sin existencia |
 | `test_recomendaciones.py` | Filtros duros, cold start, bloquear/fijar/peso |
 
@@ -215,11 +244,24 @@ instancias, sin fuga de datos):
 
 | Recomendador | hit-rate@3 | IC 95% (Wilson) | MRR |
 |---|---:|:---:|---:|
-| **híbrido (este sistema)** | **0.506** | [0.404, 0.607] | **0.343** |
+| **híbrido (este sistema)** | **0.472** | [0.372, 0.575] | **0.330** |
 | más vendido en la tienda | 0.337 | [0.247, 0.440] | 0.180 |
 | misma categoría | 0.135 | [0.079, 0.221] | 0.096 |
 | aleatorio con stock | 0.112 | [0.062, 0.195] | 0.071 |
 | más vendido global | 0.112 | [0.062, 0.195] | 0.052 |
+
+Se mide en el modo **Equilibrado**, que es el de operar a diario. Los tres modos
+del panel dan resultados distintos, y esa es justamente la decisión que ofrecen:
+
+| Modo | hit-rate@3 | Sugerencias por producto |
+|---|---:|---:|
+| Solo lo comprobado | 0.326 | 2.2 |
+| Equilibrado | 0.472 | 3.4 |
+| Descubrir más | 0.494 | 4.5 |
+
+Exigir más evidencia **cuesta aciertos, y es correcto que los cueste**: se
+recorta la cola de sugerencias deducidas y ahí caía alguno. Es precisión antes
+que cobertura, tomada a conciencia y no escondida en un valor por defecto.
 
 **El intervalo es ancho y se solapa.** Con 42 canastas no da para declarar un
 ganador estadísticamente significativo, y presentarlo como si diera sería
@@ -298,28 +340,70 @@ veces, devuelve el ticket original sin volver a descontar.
 
 ## La capa de IA (opcional)
 
-```bash
-python scripts/redactar_justificaciones.py   # requiere GEMINI_API_KEY
+**Una sola llamada, y solo si hay algo nuevo que analizar.**
+
+```
+POST /api/analisis  {"tienda": "merida"}     ← botón en la pantalla de Relaciones
 ```
 
-Gemini reescribe las justificaciones en lenguaje de mostrador. **El LLM no decide
-qué se recomienda ni en qué orden: solo redacta.**
+El modelo recibe el retrato completo de una plaza —catálogo con existencias y
+ventas, valor inmovilizado, participación en la cadena, concentración, las
+relaciones que usa el recomendador y los hallazgos que el diagnóstico ya
+detectó— y devuelve **una lectura del negocio y del propio sistema**, con las
+decisiones que tocan.
 
-> plantilla → `Para soldadura: completa el equipo.`
-> LLM → `Llévese el regulador para completar su equipo de soldadura.`
+### Por qué analista y no redactor
 
-Es **batch, no runtime**: el vendedor tiene un cliente enfrente y no puede esperar
-una llamada de red; el evaluador no debería necesitar API key para arrancar; y el
-ranking debe ser determinista para poder evaluarse. **Sin clave el script avisa,
-no escribe nada y todo el sistema funciona igual** con las plantillas.
+La primera versión usaba el LLM para **reescribir las justificaciones** una a
+una. Funcionaba, pero costaba una llamada por relación para cambiar *cómo suena*
+algo que el sistema ya sabía. No añadía información.
+
+| | Redactar (antes) | Analizar (ahora) |
+|---|---|---|
+| Llamadas | 151, una por relación | **1**, y solo si el sistema cambió |
+| Qué produce | la misma información, mejor escrita | información que el sistema **no** tenía |
+| Si falla | se queda el texto de plantilla | no hay análisis; nada más se ve afectado |
+
+El script `scripts/redactar_justificaciones.py` sigue en el repositorio y sus
+151 textos están en la base: el mostrador los usa y se ven en el panel. Pero ya
+no es *la* integración de IA del proyecto, sino un uso puntual y secundario.
+
+### La garantía de no gastar cuota
+
+Antes de preguntar se calcula la **huella** del estado del sistema: catálogo,
+precios, existencias, ventas por plaza, relaciones, bloqueos y pesos. Si
+coincide con la del último análisis guardado, se devuelve ese sin tocar la red.
+Medido contra el modelo real:
+
+| | Tiempo | ¿Consulta al modelo? |
+|---|---:|---|
+| Primera llamada | 38 s | sí |
+| Segunda, sin cambios | 0.3 s | **no** |
+| Tras cambiar un precio | — | el botón se reactiva |
+| Al revertir ese precio | — | misma huella: reutiliza el análisis |
+
+**La garantía vive en el servidor, no en el botón**, así no depende de que
+ningún cliente se acuerde de comprobarlo. El botón apagado solo lo explica antes
+de que alguien lo intente.
+
+### Lo que el modelo no hace
+
+**No decide qué se recomienda ni en qué orden.** El ranking sigue siendo
+determinista y evaluable offline; meter un LLM en el camino de servir rompería
+las dos cosas y añadiría latencia de red a la pantalla de alguien que tiene un
+cliente enfrente. Lo que devuelve se guarda etiquetado como lo que es: la
+opinión de un modelo sobre unos datos.
+
+Y se recorta antes de guardarse: máximo cuatro puntos por sección, textos
+acotados, un `impacto` inventado cae a `medio`, y un punto sin análisis o sin
+acción se descarta. **Sin clave, todo lo demás del sistema funciona igual**; la
+pantalla lo dice y responde `503`, no `500`.
 
 **Sobre `GEMINI_MODEL`:** se eligió por **cuota, no por capacidad**. El alias
 `gemini-flash-latest` resuelve a 3.7 Flash, que en tier gratuito da 5 peticiones
-por minuto y **20 al día**; con 151 relaciones que redactar, el script se pasaba el
-rato reintentando `429`. `gemini-3.1-flash-lite` da 15 y **500**: 151/151 en ocho lotes, cero
-reintentos. Reescribir una frase de una línea no necesita el modelo más
-capaz, necesita poder ejecutarse. El recorrido completo (incluido que
-`gemini-2.0-flash` ya devuelve 404) está en `docs/decisiones.md`.
+por minuto y **20 al día**. `gemini-3.1-flash-lite` da 15 y **500**. El recorrido
+completo (incluido que `gemini-2.0-flash` ya devuelve 404) está en
+`docs/decisiones.md`.
 
 ---
 
@@ -332,9 +416,10 @@ backend/app/
 │                    diagnostico
 ├── services/        Lógica de negocio y LÍMITE TRANSACCIONAL
 │                    catalogo · compra · recomendacion · relaciones ·
-│                    diagnostico
+│                    diagnostico · analisis · estado
 ├── repositories/    Todo el SQL. Los servicios no conocen SQLite
-│                    productos · ventas · relaciones · tiendas
+│                    productos · ventas · relaciones · tiendas · analisis
+├── ia/              Única salida a Internet: cliente de Gemini + analista
 └── recomendador/
     ├── base.py       Protocol FuenteRecomendacion + Candidato
     ├── historico.py  Co-ocurrencia + Wilson

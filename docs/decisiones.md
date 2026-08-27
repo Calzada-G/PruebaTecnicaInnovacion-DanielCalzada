@@ -204,7 +204,7 @@ mensaje de error por si apareciera por otra vía.
 
 Tres comprobaciones, porque ninguna basta sola. Detalle en `docs/evaluacion.md`.
 
-**a) Leave-one-out sobre las 42 canastas** — hit-rate@3 **0.506** frente a 0.337
+**a) Leave-one-out sobre las 42 canastas** — hit-rate@3 **0.472** frente a 0.337
 del mejor baseline. Dos decisiones sostienen que el número sea honesto:
 
 - **Sin fuga de datos:** en cada pliegue las reglas se reconstruyen **ocultando el
@@ -242,6 +242,11 @@ historial.
 | El ticket se vacía al cambiar de tienda, y **solo** ahí | Un ticket pertenece a la plaza donde se cobra. Cambiar de vista no es cambiar de plaza: consultar un precio en el catálogo a media venta es lo normal, así que el ticket vive en el layout y sobrevive a la navegación |
 | El diagnóstico de plaza se calcula en el backend | Tres de sus ocho hallazgos necesitan la tabla `ventas`, que la API no expone; calcularlo en el cliente obligaría a mandarle el histórico entero para deducir una frase |
 | Un solo `QueryClient` por montaje, en `useState` | Evita que un remount comparta caché sin querer |
+| El peso por fuente decide también un **corte de evidencia** | Medido: como simple multiplicador, los tres modos del panel daban el mismo conjunto de sugerencias en las 140 consultas. Un peso responde «cuál prefiero»; el negocio pregunta «cuánta evidencia exijo» |
+| El corte es **relativo** al mejor candidato, no absoluto | Con un umbral fijo, Mérida —cero tickets— se quedaría en blanco en el modo exigente, que es justo el caso que el sistema debe cubrir |
+| Los complementos **no** dependen de la plaza | Responden al trabajo del cliente, no al clima. Ordenarlos por ventas locales metería datos de la plaza en el orden y filtraría en la evaluación |
+| El LLM analiza, no redacta | Reescribir justificaciones gasta una llamada por relación para cambiar cómo suena algo ya sabido. Una llamada que lee todo el sistema produce algo que no estaba |
+| El análisis se cachea por **huella del estado** | Preguntar dos veces lo mismo devuelve lo mismo y no vale una llamada. La garantía vive en el servidor, no en el botón |
 | `FAMILIAS` como constante | Honesto para 28 SKUs; **no escala** — en producción es una columna del maestro de productos |
 
 ---
