@@ -3,54 +3,68 @@
 /**
  * Bloque de recomendaciones. Componente de presentacion puro.
  *
- * Cada tarjeta muestra SIEMPRE su procedencia ("2 tickets" / "por atributos" /
- * "manual") y su justificacion. No es adorno: el vendedor tiene que poder
- * repetirle al cliente por que le esta ofreciendo eso, y el negocio tiene que
- * poder auditar de donde salio la sugerencia.
+ * Cada tarjeta muestra SIEMPRE de donde sale la sugerencia y por que. No es
+ * adorno: el vendedor tiene que poder repetirle el motivo al cliente, y el
+ * negocio tiene que poder auditar de donde salio.
  */
 
+import { Plus, Repeat } from "lucide-react";
 import type { Candidato, Producto } from "../lib/api";
 import { etiquetaFuente, precio } from "../lib/visual";
 import { ProductoTile } from "./ProductoTile";
 
 type Props = {
   titulo: string;
+  descripcion: string;
   candidatos: Candidato[];
   catalogo: Map<string, Producto>;
   etiquetaAccion: string;
   onAccion: (sku: string) => void;
   vacio: string;
+  destacado?: boolean;
 };
 
 export function BloqueRecomendacion({
   titulo,
+  descripcion,
   candidatos,
   catalogo,
   etiquetaAccion,
   onAccion,
   vacio,
+  destacado = false,
 }: Props) {
+  const Icono = destacado ? Repeat : Plus;
+
   return (
     <section>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-acero">
-        {titulo}
-      </h2>
+      <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <h2 className="text-sm font-semibold">{titulo}</h2>
+        <p className="text-xs text-acero">{descripcion}</p>
+      </div>
 
       {candidatos.length === 0 ? (
-        <p className="border border-dashed border-linea px-3 py-2 text-acero">
+        <p className="rounded-[var(--radio)] border border-dashed border-linea px-3 py-3 text-xs text-acero">
           {vacio}
         </p>
       ) : (
-        <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
           {candidatos.map((candidato) => {
             const producto = catalogo.get(candidato.sku);
             if (!producto) return null;
+            const pocas = producto.stock <= 5;
+
             return (
               <li
                 key={candidato.sku}
-                className="flex flex-col gap-2 border border-linea bg-white p-2"
+                className="tarjeta tarjeta-activa aparece flex flex-col gap-2 p-2.5"
+                style={
+                  destacado
+                    ? { borderColor: "var(--color-acento)", borderWidth: 2 }
+                    : undefined
+                }
               >
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex min-w-0 items-start justify-between gap-2">
                   <ProductoTile
                     sku={producto.sku}
                     nombre={producto.nombre}
@@ -58,40 +72,44 @@ export function BloqueRecomendacion({
                     material={producto.material}
                     uso={producto.uso_recomendado}
                     tamano="chico"
+                    nombreCompleto
                   />
                   <span
-                    className="cifra shrink-0 border px-1 text-[11px] leading-5"
-                    style={{
-                      borderColor: "var(--color-linea)",
-                      color: "var(--color-acero)",
-                    }}
+                    className="shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-4 text-acero"
+                    style={{ borderColor: "var(--color-linea)" }}
                     title={
-                      candidato.lift
-                        ? `soporte ${candidato.soporte}, confianza ${candidato.confianza}, lift ${candidato.lift}`
-                        : "derivado de los atributos del producto"
+                      candidato.soporte
+                        ? `Evidencia de ventas — soporte ${candidato.soporte}, confianza ${candidato.confianza}, lift ${candidato.lift}`
+                        : "Derivado del tipo de producto y del perfil de la plaza"
                     }
                   >
                     {etiquetaFuente(candidato.fuente, candidato.soporte)}
                   </span>
                 </div>
 
-                <p className="text-xs leading-snug text-acero">
+                {/* Altura fija de dos lineas: las justificaciones van de 30 a
+                    123 caracteres y sin esto las tarjetas quedan desparejas. */}
+                <p className="recorta-2 min-h-[2.1rem] text-xs leading-snug text-acero">
                   {candidato.justificacion}
                 </p>
 
-                <div className="mt-auto flex items-center justify-between gap-2">
-                  <span className="cifra text-xs">
-                    {precio(producto.precio)}
-                    <span className="ml-2 text-acero">{producto.stock} pz</span>
+                <div className="mt-auto flex items-center justify-between gap-2 border-t border-linea pt-2">
+                  <span className="min-w-0 text-xs">
+                    <span className="cifra font-medium">
+                      {precio(producto.precio)}
+                    </span>
+                    <span
+                      className="cifra ml-2"
+                      style={{ color: pocas ? "var(--color-alerta)" : "var(--color-acero)" }}
+                    >
+                      {producto.stock} pz
+                    </span>
                   </span>
                   <button
                     onClick={() => onAccion(candidato.sku)}
-                    className="border px-2 py-1 text-xs font-medium text-white"
-                    style={{
-                      background: "var(--color-acento)",
-                      borderColor: "var(--color-acento)",
-                    }}
+                    className="boton boton-primario flex shrink-0 items-center gap-1 px-2.5 py-1 text-xs"
                   >
+                    <Icono size={13} aria-hidden />
                     {etiquetaAccion}
                   </button>
                 </div>

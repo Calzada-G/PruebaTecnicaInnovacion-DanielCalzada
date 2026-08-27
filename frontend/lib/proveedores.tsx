@@ -10,6 +10,8 @@
 
 import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Notificaciones } from "../componentes/Notificaciones";
+import { NotificacionesProvider } from "./notificaciones";
 import { TiendaProvider } from "./tienda-context";
 
 export function Proveedores({ children }: { children: ReactNode }) {
@@ -33,7 +35,13 @@ export function Proveedores({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={cliente}>
-      <TiendaProvider>{children}</TiendaProvider>
+      {/* Los avisos envuelven a la tienda porque cambiar de plaza tambien avisa. */}
+      <NotificacionesProvider>
+        <TiendaProvider>
+          {children}
+          <Notificaciones />
+        </TiendaProvider>
+      </NotificacionesProvider>
     </QueryClientProvider>
   );
 }

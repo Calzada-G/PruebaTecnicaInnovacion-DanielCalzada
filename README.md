@@ -56,8 +56,8 @@ Ambos `.env.example` tienen valores por defecto que funcionan sin tocar nada.
 | Vista | Qué demuestra |
 |---|---|
 | **Mostrador** (`/`) | Busca `soplete` → verás **SKU027 (regulador)** recomendado pese a **no tener ni una venta** |
-| Cambia la tienda a **Mérida** | Busca `tornillo` → propone **inoxidable 316**, con **cero historial** en esa plaza. El acento de toda la UI cambia con la plaza |
-| **Relaciones** (`/relaciones`) | Bloquea `SKU001 → SKU004`. Vuelve al mostrador: **desapareció, sin reiniciar nada** |
+| Cambia la tienda a **Mérida** | Busca `tornillo` → propone **inoxidable 316**, con **cero historial** en esa plaza. El acento de toda la UI cambia con la plaza y sale un aviso de qué cambia |
+| **Relaciones** (`/relaciones`) | Abre *Soplete de gas MAPP* y pon una sugerencia en **No mostrar**. Vuelve al mostrador: **desapareció, sin reiniciar nada** |
 | **Catálogo** (`/catalogo`) | Pon el stock de un producto en 0 → sale del mostrador y de las recomendaciones |
 
 Atajo: `/` enfoca el buscador desde cualquier parte; flechas recorren y Enter
@@ -65,13 +65,79 @@ selecciona.
 
 ---
 
+## Decisiones de interfaz
+
+El usuario es **el vendedor de mostrador con un cliente enfrente**, no un
+comprador online. Eso decide todo lo demás.
+
+**El sistema se explica solo al entrar.** El Mostrador abre con un saludo, la
+sucursal en la que estás y tres pasos (buscar → revisar sugerencias → cobrar).
+Relaciones abre explicando qué es una sugerencia y de dónde sale. Nadie debería
+necesitar el README para usar la pantalla.
+
+**Toda acción que cambia datos deja constancia.** Avisos para agregar y quitar
+del ticket, cobrar, crear, editar, dar de baja, reactivar, ajustar una sugerencia
+y cambiar de sucursal. En un mostrador el vendedor no puede quedarse con la duda
+de si el cobro entró. Están hechos a mano (~60 líneas, sin librería externa) y se
+anuncian con `aria-live` para no robar el foco mientras se escribe.
+
+**El cambio de sucursal avisa qué cambia**, no solo que cambió: *«Ahora se
+priorizan materiales que aguantan el aire salino»*. El acento de toda la interfaz
+cambia con la plaza — no es decoración, evita cobrar en la tienda equivocada.
+
+**Animaciones cortas (130 ms) y solo donde informan**: hover de tarjeta y fila,
+el botón se hunde al pulsarlo, los avisos entran y salen. Todo se desactiva con
+`prefers-reduced-motion`: nadie debería marearse usando un punto de venta.
+
+**Contención de texto.** Los nombres del catálogo llegan a 44 caracteres y las
+justificaciones del LLM a 123. Hay utilidades `.recorta` / `.recorta-2` y
+`min-w-0` en cada contenedor flex, más altura fija de dos líneas en las tarjetas
+de sugerencia para que no queden desparejas.
+
+### Relaciones: por qué ya no es una tabla de métricas
+
+La primera versión mostraba `soporte`, `confianza`, `lift`, `score` y
+`peso_manual` en columnas numéricas. Es exactamente lo que el sistema calcula —
+y es **ilegible** para un encargado de tienda: nadie sabe si un lift de 9.3 es
+bueno, ni qué hacer con un peso de 0.8.
+
+El backend no cambió. Cambió cómo se presenta:
+
+| Antes (lo que calcula el sistema) | Ahora (la decisión que toma el negocio) |
+|---|---|
+| 151 filas planas | Agrupadas por producto: *«si el cliente lleva X…»* |
+| `fuente: historico` | **Lo dicen las ventas** — «se llevaron juntos en 2 tickets» |
+| `fuente: atributos` | **Va con el producto** — mismo trabajo, pieza complementaria |
+| `tipo: sustituto / complemento` | **«en lugar de»** / **«además de»** |
+| `score: 0.607` | Barra de fuerza: Débil · Media · Fuerte · Muy fuerte |
+| `estado` + `peso_manual` (dos campos) | **Un solo control de 4 opciones**: Siempre primero · Más seguido · Normal · No mostrar |
+| `historico=1.0, atributos=0.8` | Tres modos: **Solo lo comprobado** · **Equilibrado** · **Descubrir más** |
+
+Los números crudos siguen ahí: al pasar el ratón sobre la barra de fuerza, y en
+«ver valores exactos» junto a los modos. El evaluador técnico los quiere ver; el
+encargado no debería tropezarse con ellos.
+
+Un detalle honesto: los sustitutos se guardan **sin puntaje** porque cuál conviene
+depende de la plaza y eso se resuelve al servir. En vez de pintar una barra vacía
+que parecería «muy débil», muestran **«Según la plaza»**.
+
+---
+
 ## Comprobar que funciona
 
 ```bash
 cd backend
-pytest -v                    # 35 tests, incluye 50 hilos contra stock 8
+pytest -v                    # 51 tests, incluye 50 hilos contra stock 8
 python scripts/evaluar.py    # tabla real contra 4 baselines
 ```
+
+| Archivo de tests | Qué cubre |
+|---|---|
+| `test_concurrencia.py` | 50 hilos contra stock 8; el libro de movimientos cuadra |
+| `test_compra.py` | Atomicidad del ticket, idempotencia, casos límite |
+| `test_crud.py` | CRUD a nivel de servicio y borrado lógico |
+| `test_crud_api.py` | **Ciclo completo por HTTP**: alta → edición → baja → reactivación → venta, y el efecto de cada operación sobre lo que el mostrador puede vender y recomendar |
+| `test_recomendaciones.py` | Filtros duros, cold start, bloquear/fijar/peso |
 
 **Resultado de la evaluación** (leave-one-out sobre las 42 canastas, 89
 instancias, sin fuga de datos):
@@ -202,7 +268,8 @@ backend/app/
 
 frontend/
 ├── app/             layout + 3 vistas (Mostrador, Catálogo, Relaciones)
-├── lib/             api.ts (único cliente HTTP), contexto de tienda, visual
+├── lib/             api.ts (único cliente HTTP), contexto de tienda,
+│                    notificaciones, visual
 ├── hooks/           uno por recurso
 └── componentes/     presentación pura, sin fetch
 ```

@@ -17,8 +17,8 @@ import { ProductoTile } from "./ProductoTile";
 type Props = {
   productos: Producto[];
   onGuardar: (sku: string, cambios: Partial<Producto>) => void;
-  onEliminar: (sku: string) => void;
-  onReactivar: (sku: string) => void;
+  onEliminar: (producto: Producto) => void;
+  onReactivar: (producto: Producto) => void;
   guardando: boolean;
 };
 
@@ -30,17 +30,11 @@ export function TablaCatalogo({
   guardando,
 }: Props) {
   const [editando, setEditando] = useState<string | null>(null);
-  const [borrador, setBorrador] = useState<{ precio: string; stock: string }>({
-    precio: "",
-    stock: "",
-  });
+  const [borrador, setBorrador] = useState({ precio: "", stock: "" });
 
   function abrir(producto: Producto) {
     setEditando(producto.sku);
-    setBorrador({
-      precio: String(producto.precio),
-      stock: String(producto.stock),
-    });
+    setBorrador({ precio: String(producto.precio), stock: String(producto.stock) });
   }
 
   function guardar(sku: string) {
@@ -53,28 +47,37 @@ export function TablaCatalogo({
     setEditando(null);
   }
 
+  function alTeclear(evento: React.KeyboardEvent, sku: string) {
+    if (evento.key === "Enter") guardar(sku);
+    if (evento.key === "Escape") setEditando(null);
+  }
+
   return (
     <table className="w-full border-collapse">
       <thead>
-        <tr className="border-b border-linea text-left text-xs uppercase tracking-wide text-acero">
-          <th className="px-2 py-2 font-medium">Producto</th>
-          <th className="px-2 py-2 font-medium">Categoria</th>
-          <th className="px-2 py-2 font-medium">Uso recomendado</th>
-          <th className="px-2 py-2 text-right font-medium">Precio</th>
-          <th className="px-2 py-2 text-right font-medium">Stock</th>
-          <th className="px-2 py-2 text-right font-medium">Acciones</th>
+        <tr className="border-b border-linea bg-papel/60 text-left text-[11px] uppercase tracking-wide text-acero">
+          <th className="px-3 py-2 font-medium">Producto</th>
+          <th className="hidden px-3 py-2 font-medium lg:table-cell">
+            Para qué sirve
+          </th>
+          <th className="px-3 py-2 text-right font-medium">Precio</th>
+          <th className="px-3 py-2 text-right font-medium">Existencia</th>
+          <th className="px-3 py-2 text-right font-medium">Acciones</th>
         </tr>
       </thead>
       <tbody>
         {productos.map((producto) => {
           const enEdicion = editando === producto.sku;
+          const agotado = producto.stock === 0;
+          const pocas = producto.stock > 0 && producto.stock <= 5;
+
           return (
             <tr
               key={producto.sku}
-              className="border-b border-linea align-middle"
-              style={{ opacity: producto.activo ? 1 : 0.5 }}
+              className="fila border-b border-linea last:border-b-0"
+              style={{ opacity: producto.activo ? 1 : 0.55 }}
             >
-              <td className="px-2 py-2">
+              <td className="max-w-0 px-3 py-2">
                 <ProductoTile
                   sku={producto.sku}
                   nombre={producto.nombre}
@@ -84,33 +87,42 @@ export function TablaCatalogo({
                   tamano="chico"
                 />
                 {!producto.activo && (
-                  <span className="text-xs text-red-600">dado de baja</span>
+                  <span
+                    className="mt-1 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                    style={{ background: "#fef2f2", color: "var(--color-error)" }}
+                  >
+                    dado de baja
+                  </span>
                 )}
               </td>
-              <td className="px-2 py-2 text-xs text-acero">{producto.categoria}</td>
-              <td className="max-w-[260px] truncate px-2 py-2 text-xs text-acero">
-                {producto.uso_recomendado}
+
+              <td className="hidden max-w-0 px-3 py-2 lg:table-cell">
+                <span className="recorta block text-xs text-acero" title={producto.uso_recomendado}>
+                  {producto.uso_recomendado}
+                </span>
               </td>
 
-              <td className="px-2 py-2 text-right">
+              <td className="px-3 py-2 text-right">
                 {enEdicion ? (
                   <input
                     type="number"
                     min={0}
                     step="0.01"
+                    autoFocus
                     value={borrador.precio}
                     onChange={(e) =>
                       setBorrador((b) => ({ ...b, precio: e.target.value }))
                     }
-                    aria-label={`Precio de ${producto.sku}`}
-                    className="cifra w-24 border border-linea px-1 py-0.5 text-right"
+                    onKeyDown={(e) => alTeclear(e, producto.sku)}
+                    aria-label={`Precio de ${producto.nombre}`}
+                    className="cifra w-24 rounded border border-linea px-1.5 py-1 text-right outline-none"
                   />
                 ) : (
                   <span className="cifra">{precio(producto.precio)}</span>
                 )}
               </td>
 
-              <td className="px-2 py-2 text-right">
+              <td className="px-3 py-2 text-right">
                 {enEdicion ? (
                   <input
                     type="number"
@@ -120,13 +132,26 @@ export function TablaCatalogo({
                     onChange={(e) =>
                       setBorrador((b) => ({ ...b, stock: e.target.value }))
                     }
-                    aria-label={`Stock de ${producto.sku}`}
-                    className="cifra w-20 border border-linea px-1 py-0.5 text-right"
+                    onKeyDown={(e) => alTeclear(e, producto.sku)}
+                    aria-label={`Existencia de ${producto.nombre}`}
+                    className="cifra w-20 rounded border border-linea px-1.5 py-1 text-right outline-none"
                   />
                 ) : (
                   <span
-                    className={
-                      producto.stock === 0 ? "cifra text-red-600" : "cifra"
+                    className="cifra"
+                    style={{
+                      color: agotado
+                        ? "var(--color-error)"
+                        : pocas
+                          ? "var(--color-alerta)"
+                          : "var(--color-tinta)",
+                    }}
+                    title={
+                      agotado
+                        ? "No se puede vender ni recomendar"
+                        : pocas
+                          ? "Quedan pocas piezas"
+                          : undefined
                     }
                   >
                     {producto.stock}
@@ -134,23 +159,25 @@ export function TablaCatalogo({
                 )}
               </td>
 
-              <td className="px-2 py-2">
+              <td className="px-3 py-2">
                 <div className="flex justify-end gap-1">
                   {enEdicion ? (
                     <>
                       <button
                         onClick={() => guardar(producto.sku)}
                         disabled={guardando}
-                        aria-label="Guardar"
-                        className="border border-linea p-1"
+                        title="Guardar (Enter)"
+                        aria-label="Guardar cambios"
+                        className="boton boton-suave px-2 py-1"
                         style={{ color: "var(--color-acento)" }}
                       >
                         <Check size={14} />
                       </button>
                       <button
                         onClick={() => setEditando(null)}
-                        aria-label="Cancelar"
-                        className="border border-linea p-1 text-acero"
+                        title="Cancelar (Esc)"
+                        aria-label="Cancelar edición"
+                        className="boton boton-suave px-2 py-1"
                       >
                         <X size={14} />
                       </button>
@@ -159,24 +186,27 @@ export function TablaCatalogo({
                     <>
                       <button
                         onClick={() => abrir(producto)}
-                        aria-label={`Editar ${producto.sku}`}
-                        className="border border-linea p-1 text-acero"
+                        title="Editar precio y existencia"
+                        aria-label={`Editar ${producto.nombre}`}
+                        className="boton boton-suave px-2 py-1"
                       >
                         <Pencil size={14} />
                       </button>
                       {producto.activo ? (
                         <button
-                          onClick={() => onEliminar(producto.sku)}
-                          aria-label={`Dar de baja ${producto.sku}`}
-                          className="border border-linea p-1 text-acero hover:text-red-600"
+                          onClick={() => onEliminar(producto)}
+                          title="Dar de baja"
+                          aria-label={`Dar de baja ${producto.nombre}`}
+                          className="boton boton-suave px-2 py-1 hover:!border-red-300 hover:!bg-red-50 hover:!text-red-600"
                         >
                           <Trash2 size={14} />
                         </button>
                       ) : (
                         <button
-                          onClick={() => onReactivar(producto.sku)}
-                          aria-label={`Reactivar ${producto.sku}`}
-                          className="border border-linea p-1 text-acero"
+                          onClick={() => onReactivar(producto)}
+                          title="Reactivar"
+                          aria-label={`Reactivar ${producto.nombre}`}
+                          className="boton boton-suave px-2 py-1"
                         >
                           <Undo2 size={14} />
                         </button>

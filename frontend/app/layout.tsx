@@ -17,8 +17,9 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ferreteria - Mostrador",
-  description: "Inventario compartido y recomendaciones por plaza",
+  title: "Ferretería Salinas — Mostrador",
+  description:
+    "Inventario compartido de 5 sucursales con recomendaciones por plaza",
 };
 
 export default function RootLayout({
@@ -31,7 +32,7 @@ export default function RootLayout({
       <body>
         <Proveedores>
           <Navegacion />
-          <main className="mx-auto max-w-[1400px] px-4 py-4">{children}</main>
+          <main className="mx-auto max-w-[1500px] px-4 py-4">{children}</main>
         </Proveedores>
       </body>
     </html>
