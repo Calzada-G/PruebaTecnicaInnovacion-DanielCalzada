@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme {
+  --color-papel: #f4f5f6;
+  --color-tinta: #14171a;
+  --color-acero: #6b7280;
+  --color-linea: #e2e5e8;
+
+  /* El acento lo fija SelectorTienda sobre :root al cambiar de plaza. No es
+     decoracion: evita que el vendedor cobre en la tienda equivocada y anticipa
+     la familia de materiales que el sistema va a proponer. */
+  --color-acento: var(--acento-tienda, #6b7280);
+
+  --font-sans: var(--fuente-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--fuente-plex-mono), ui-monospace, "Cascadia Mono", monospace;
+}
+
+body {
+  background: var(--color-papel);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  /* Mostrador: el vendedor tiene un cliente enfrente y necesita ver mucho de
+     un vistazo, no respirar tipografia. */
+  font-size: 14px;
+}
+
+/* SKU, precio, stock y metricas siempre en monoespaciada: se comparan en
+   columna y con proporcional no cuadran. */
+.cifra {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* El foco tiene que verse: esta interfaz se opera con teclado. */
+*:focus-visible {
+  outline: 2px solid var(--color-acento);
+  outline-offset: 2px;
+}
