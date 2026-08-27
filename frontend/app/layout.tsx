@@ -32,7 +32,9 @@ export default function RootLayout({
       <body>
         <Proveedores>
           <Navegacion />
-          <main className="mx-auto max-w-[1500px] px-4 py-4">{children}</main>
+          <main className="mx-auto min-h-0 w-full max-w-[1500px] flex-1 overflow-y-auto px-4 py-4">
+            {children}
+          </main>
         </Proveedores>
       </body>
     </html>

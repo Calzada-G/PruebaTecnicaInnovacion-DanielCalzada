@@ -34,6 +34,15 @@ body {
   /* Mostrador: el vendedor tiene un cliente enfrente y necesita ver mucho de
      un vistazo, no respirar tipografia. */
   font-size: 14px;
+
+  /* La aplicacion ocupa la ventana, no la pagina. El mostrador necesita que la
+     lista y el ticket lleguen exactamente hasta abajo: con alturas calculadas
+     a mano (100vh menos una constante) quedaba un hueco muerto distinto en
+     cada tamano de ventana. Aqui la cabecera mide lo que mida y el contenido
+     se queda con el resto; cada vista decide que scrollea dentro. */
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
 }
 
 /* SKU, precio, stock y metricas siempre en monoespaciada: se comparan en

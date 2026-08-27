@@ -52,17 +52,20 @@ export function TablaCatalogo({
     if (evento.key === "Escape") setEditando(null);
   }
 
+  // table-fixed con anchos declarados: sin esto el navegador reparte a ojo y le
+  // da a "para que sirve" el espacio que necesita el nombre, que es la columna
+  // por la que el encargado localiza lo que viene a corregir.
   return (
-    <table className="w-full border-collapse">
+    <table className="w-full table-fixed border-collapse">
       <thead>
         <tr className="border-b border-linea bg-papel/60 text-left text-[11px] uppercase tracking-wide text-acero">
-          <th className="px-3 py-2 font-medium">Producto</th>
-          <th className="hidden px-3 py-2 font-medium lg:table-cell">
+          <th className="w-[44%] px-3 py-2 font-medium">Producto</th>
+          <th className="hidden w-[26%] px-3 py-2 font-medium lg:table-cell">
             Para qué sirve
           </th>
-          <th className="px-3 py-2 text-right font-medium">Precio</th>
-          <th className="px-3 py-2 text-right font-medium">Existencia</th>
-          <th className="px-3 py-2 text-right font-medium">Acciones</th>
+          <th className="w-28 px-3 py-2 text-right font-medium">Precio</th>
+          <th className="w-24 px-3 py-2 text-right font-medium">Existencia</th>
+          <th className="w-24 px-3 py-2 text-right font-medium">Acciones</th>
         </tr>
       </thead>
       <tbody>
@@ -77,7 +80,7 @@ export function TablaCatalogo({
               className="fila border-b border-linea last:border-b-0"
               style={{ opacity: producto.activo ? 1 : 0.55 }}
             >
-              <td className="max-w-0 px-3 py-2">
+              <td className="px-3 py-2">
                 <ProductoTile
                   sku={producto.sku}
                   nombre={producto.nombre}
@@ -85,6 +88,7 @@ export function TablaCatalogo({
                   material={producto.material}
                   uso={producto.uso_recomendado}
                   tamano="chico"
+                  nombreCompleto
                 />
                 {!producto.activo && (
                   <span
@@ -96,13 +100,16 @@ export function TablaCatalogo({
                 )}
               </td>
 
-              <td className="hidden max-w-0 px-3 py-2 lg:table-cell">
-                <span className="recorta block text-xs text-acero" title={producto.uso_recomendado}>
+              <td className="hidden px-3 py-2 align-top lg:table-cell">
+                <span
+                  className="recorta-2 text-xs leading-snug text-acero"
+                  title={producto.uso_recomendado}
+                >
                   {producto.uso_recomendado}
                 </span>
               </td>
 
-              <td className="px-3 py-2 text-right">
+              <td className="px-3 py-2 text-right align-top">
                 {enEdicion ? (
                   <input
                     type="number"
@@ -122,7 +129,7 @@ export function TablaCatalogo({
                 )}
               </td>
 
-              <td className="px-3 py-2 text-right">
+              <td className="px-3 py-2 text-right align-top">
                 {enEdicion ? (
                   <input
                     type="number"
@@ -159,7 +166,7 @@ export function TablaCatalogo({
                 )}
               </td>
 
-              <td className="px-3 py-2">
+              <td className="px-3 py-2 align-top">
                 <div className="flex justify-end gap-1">
                   {enEdicion ? (
                     <>
