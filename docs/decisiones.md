@@ -1,6 +1,7 @@
 # Decisiones de diseño
 
 Cada sección responde una pregunta que un evaluador haría en entrevista.
+Expande el README, no lo repite: aquí está el razonamiento y ahí el resumen.
 
 ---
 
@@ -128,64 +129,65 @@ todas.
 
 ---
 
-## 5. ¿Por qué el LLM no está en el endpoint?
+## 5. ¿Por qué el LLM analiza y no recomienda?
 
-El PDF sugiere usar APIs gratuitas de IA. Se usa **Gemini, pero en batch**, y el
-LLM **no decide qué se recomienda ni en qué orden: solo redacta**.
+El PDF sugiere usar APIs gratuitas de IA. Se usa **Gemini, pero fuera del camino
+de servir**, y **no decide qué se recomienda ni en qué orden**.
 
 Tres razones que pesan más que la comodidad de llamarlo en línea:
 
 1. **Latencia.** El usuario es un vendedor con un cliente enfrente. Meter una
    llamada de red en esa pantalla empeora justo lo que se quiere mejorar.
-2. **Arranque.** Ataría la POC a que el evaluador tenga API key. Sin clave el
-   script avisa, no escribe nada, y **todo el sistema funciona igual** con las
-   justificaciones de plantilla.
+2. **Arranque.** Ataría la POC a que el evaluador tenga API key. Sin clave, todo
+   el sistema funciona igual.
 3. **Determinismo.** El ranking se evalúa offline y debe dar el mismo número dos
    veces. Un LLM en el camino de servir rompe eso.
 
-El texto va a una columna aparte (`justificacion_ia`), así que se puede revertir,
-auditar y editar desde el panel de Relaciones. Se limpia sola cuando cambia la
-plantilla: señal de que los números que el LLM redactó ya no son ciertos.
+**Primero redactó, ahora analiza.** La primera versión reescribía las 151
+justificaciones en lenguaje de mostrador. Funcionaba, pero gastaba una llamada
+por relación para cambiar *cómo suena* algo que el sistema ya sabía. Se cambió
+por **una sola llamada** que recibe el retrato de una plaza —con las cuentas ya
+hechas— y devuelve una lectura del negocio y del propio sistema: algo que el
+sistema no tenía.
+
+**No se llama si nada cambió.** Antes de preguntar se calcula la huella del
+estado —catálogo, precios, existencias, ventas, relaciones, ajustes y pesos—. Si
+coincide con la del último análisis, se devuelve ese sin tocar la red: medido,
+3–5 s la primera vez y 0.3 s la segunda. La garantía vive en el servidor y no en
+el botón, para que no dependa de que el cliente se acuerde de comprobarlo.
+
+Lo que el modelo devuelve se **recorta antes de guardarse**. Un texto de 4000
+caracteres o un campo inventado no pueden entrar a la pantalla del encargado como
+si fueran válidos.
 
 ### La búsqueda del modelo: tres iteraciones contra la API real
 
 Esto no salió a la primera y el recorrido es parte de la decisión.
 
-**Iteración 1 — `gemini-2.0-flash` → 404.**
-Era el default que puse de memoria. Contra la API actual **ya no existe**. Al
-listar los modelos disponibles con la clave aparecieron `gemini-3.7-flash`,
-`gemini-3.1-flash-lite` y compañía: bastante más nuevos que el que había fijado.
+**Iteración 1 — `gemini-2.0-flash` → 404.** Era el default que puse de memoria.
+Contra la API actual **ya no existe**.
 
-**Iteración 2 — `gemini-flash-latest` → 429 constantes.**
-Alias que Google mantiene apuntando al flash estable vigente. Elegido para no
-caducar. Pero resuelve a **3.7 Flash**, el modelo puntero, y en el tier gratuito
-eso significa:
+**Iteración 2 — `gemini-flash-latest` → 429 constantes.** Alias que Google
+mantiene apuntando al flash vigente, elegido para no caducar. Pero resuelve al
+modelo puntero, y en el tier gratuito eso significa:
 
 | Modelo | Peticiones/min | Peticiones/día |
 |---|---:|---:|
-| Gemini 3.7 Flash (`gemini-flash-latest`) | 5 | **20** |
+| Flash puntero (`gemini-flash-latest`) | 5 | **20** |
 | Gemini 3.1 Flash Lite | 15 | **500** |
 
-Son **151 relaciones** que redactar en lotes de 20 → 8 peticiones por pasada
-completa. Con 20 al día compartidas con cualquier otra prueba, el script se
-pasaba el rato reintentando `429` y escribía **40 por pasada**.
-
-**Iteración 3 — `gemini-3.1-flash-lite` → 151/151 en ocho lotes, cero reintentos.**
-
-**El criterio de elección fue la cuota, no la capacidad.** Reescribir una frase
-de una línea con un límite de 140 caracteres no necesita el modelo más capaz del
-catálogo; necesita poder ejecutarse 8 veces seguidas. Un modelo *lite* con 25× la
-cuota diaria es estrictamente mejor para esta tarea, y la calidad del resultado lo
-confirma:
-
-> plantilla → `Para soldadura: completa el equipo.`
-> LLM → `Llévese el regulador para completar su equipo de soldadura.`
+**Iteración 3 — `gemini-3.1-flash-lite`.** El criterio fue la **cuota, no la
+capacidad**: resumir datos que ya vienen calculados no necesita el modelo más
+capaz del catálogo, necesita poder ejecutarse.
 
 **Coste asumido:** fijar una versión concreta caduca, como le pasó a
-`gemini-2.0-flash`. Se asume a conciencia porque el fallo es benigno: el script lo
-dice, no escribe nada, y el sistema sigue con las plantillas. La alternativa
-(`-latest`, que no caduca) hacía que el script no terminara nunca su trabajo, que
-es un fallo peor.
+`gemini-2.0-flash`. Se asume porque el fallo es benigno — la API responde `503`,
+lo dice, y todo lo demás sigue.
+
+**Con el negocio real cambiaría.** Cinco sucursales facturando quitan la
+restricción de cuota y la sustituyen por la calidad de la lectura: un análisis
+mensual por plaza son 5 llamadas al mes, y ahí conviene un modelo de gama alta.
+
 
 ### Un bug de seguridad que solo apareció con clave real
 
