@@ -45,7 +45,16 @@ def calcular_reglas(bd: sqlite3.Connection) -> list[dict]:
     canastas: dict[str, set[str]] = {}
     for fila in filas:
         canastas.setdefault(fila["ticket_id"], set()).add(fila["sku"])
+    return calcular_reglas_desde_canastas(canastas)
 
+
+def calcular_reglas_desde_canastas(canastas: dict[str, set[str]]) -> list[dict]:
+    """Separado de la lectura para poder evaluar sin fuga de datos.
+
+    La evaluacion necesita reconstruir las reglas ocultando el ticket que esta
+    midiendo. Si se construyeran siempre desde la base, cada acierto vendria en
+    parte de haber visto la respuesta.
+    """
     total_tickets = len(canastas)
     if total_tickets == 0:
         return []

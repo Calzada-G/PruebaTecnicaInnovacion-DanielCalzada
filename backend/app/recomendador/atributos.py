@@ -13,7 +13,14 @@ el negocio pueda discutirlas sin leer el resto del codigo.
 import sqlite3
 
 from .base import Candidato
-from .perfiles import MOTIVO_PLAZA, VENTAJA_AMBIENTE, adecuacion, ambiente, normalizar
+from .perfiles import (
+    AMBIENTE_TEXTO,
+    PLAZA_TEXTO,
+    VENTAJA_AMBIENTE,
+    adecuacion,
+    ambiente,
+    normalizar,
+)
 
 # Familias funcionales: mismo trabajo, distinto material o ambiente. Son la
 # base de los sustitutos y nunca son complementos entre si.
@@ -45,9 +52,12 @@ PARES_ROL: dict[tuple[str, str], float] = {
     ("consumible", "herramienta_principal"): 0.55,
     ("material", "accesorio"): 0.55,
     ("material", "material"): 0.50,
+    ("consumible", "material"): 0.50,
     ("epp", "epp"): 0.75,
     ("epp", "herramienta_principal"): 0.50,
+    ("consumible", "epp"): 0.55,
     ("consumible", "accesorio"): 0.45,
+    ("accesorio", "accesorio"): 0.40,
     ("consumible", "consumible"): 0.35,
 }
 
@@ -61,9 +71,12 @@ MOTIVO_ROL: dict[tuple[str, str], str] = {
     ("consumible", "herramienta_principal"): "es el equipo que lo usa",
     ("material", "accesorio"): "se ocupa en la misma instalacion",
     ("material", "material"): "se instalan juntos en el mismo trabajo",
+    ("consumible", "material"): "es el material sobre el que se aplica",
     ("epp", "epp"): "se usan en el mismo trabajo",
     ("epp", "herramienta_principal"): "es el trabajo que exige esa proteccion",
+    ("consumible", "epp"): "es la proteccion que exige ese trabajo",
     ("consumible", "accesorio"): "se ocupa en el mismo equipo",
+    ("accesorio", "accesorio"): "son partes del mismo equipo",
     ("consumible", "consumible"): "se gastan en el mismo trabajo",
 }
 
@@ -182,8 +195,9 @@ class AtributosStrategy:
                     fuente=self.nombre,
                     justificacion=(
                         f"{self._productos[otro]['material']}: "
-                        f"{VENTAJA_AMBIENTE[amb_otro]}, "
-                        f"{MOTIVO_PLAZA.get(perfil, '')}."
+                        f"{VENTAJA_AMBIENTE[amb_otro]}. "
+                        f"El actual es para {AMBIENTE_TEXTO[amb_ancla]} "
+                        f"y esta plaza es {PLAZA_TEXTO.get(perfil, 'general')}."
                     ),
                 )
             )

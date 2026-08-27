@@ -64,13 +64,24 @@ ADECUACION: dict[str, dict[str, float]] = {
     },
 }
 
-# Por que esta plaza necesita ese material. Va en la justificacion que lee el
-# vendedor, que tiene que poder repetirsela al cliente sin traducirla.
-MOTIVO_PLAZA = {
-    "costero_salino": "aqui el aire salino se come el acero comun",
-    "sol_directo_seco": "aqui el sol directo degrada los materiales sin proteccion",
-    "interior_urbano": "es trabajo de interior y no necesita sobrecosto",
-    "taller_metalmecanico": "es trabajo de taller bajo techo",
+# La justificacion se arma comparando: que ambiente cubre el producto actual y
+# como es la plaza. Una frase fija por perfil se contradecia con la ventaja real
+# del sustituto (proponia CPVC anti-UV "porque el aire salino corroe"), y una
+# justificacion que no se sostiene es peor que ninguna: el vendedor la repite
+# al cliente y queda mal.
+AMBIENTE_TEXTO = {
+    "interior": "interior",
+    "humedad": "exterior con humedad",
+    "costero": "ambiente costero salino",
+    "sol": "exposicion solar directa",
+    "neutro": "uso general",
+}
+
+PLAZA_TEXTO = {
+    "costero_salino": "costera y salina",
+    "sol_directo_seco": "de sol directo y clima seco",
+    "interior_urbano": "de trabajo en interior",
+    "taller_metalmecanico": "de taller bajo techo",
 }
 
 VENTAJA_AMBIENTE = {
