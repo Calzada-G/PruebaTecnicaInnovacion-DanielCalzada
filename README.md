@@ -184,7 +184,10 @@ quieres cambiar algo.
 | `backend/.env` | `GEMINI_API_KEY` · `GEMINI_MODEL` | vacío — solo activa el análisis con IA |
 | `frontend/.env.local` | `NEXT_PUBLIC_API_URL` | `http://localhost:8000` |
 
-**Sin clave de IA el sistema funciona completo.** Es lo único que la necesita.
+**Sin clave de IA el sistema funciona completo.** Es lo único que la necesita:
+el botón de análisis queda desactivado y lo explica en pantalla. Si quieres
+verlo funcionar, la clave es gratuita en https://aistudio.google.com/apikey —
+se pega en `backend/.env` y no hace falta nada más.
 
 ### Qué probar primero
 
