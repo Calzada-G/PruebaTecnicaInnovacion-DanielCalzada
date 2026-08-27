@@ -11,7 +11,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Link2, Package, Store } from "lucide-react";
+import { Link2, Package, Receipt, Store } from "lucide-react";
+import { useTicket } from "../lib/ticket-context";
+import { precio } from "../lib/visual";
 import { SelectorTienda } from "./SelectorTienda";
 
 const VISTAS = [
@@ -32,6 +34,7 @@ const VISTAS = [
 
 export function Navegacion() {
   const ruta = usePathname();
+  const { piezas, total } = useTicket();
 
   return (
     <header className="sticky top-0 z-40 border-b border-linea bg-white/95 backdrop-blur">
@@ -78,7 +81,27 @@ export function Navegacion() {
           })}
         </nav>
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {/* El ticket sigue vivo fuera del mostrador. Sin este recordatorio,
+              el vendedor no tiene forma de saberlo desde el catalogo. */}
+          {piezas > 0 && ruta !== "/" && (
+            <Link
+              href="/"
+              title="Volver al mostrador"
+              className="boton aparece flex items-center gap-1.5 border px-2.5 py-1.5 text-xs"
+              style={{
+                borderColor: "color-mix(in srgb, var(--color-acento) 40%, #fff)",
+                background: "color-mix(in srgb, var(--color-acento) 8%, #fff)",
+                color: "var(--color-acento)",
+              }}
+            >
+              <Receipt size={14} aria-hidden />
+              Ticket en curso
+              <span className="cifra font-medium">
+                {piezas} pz · {precio(total)}
+              </span>
+            </Link>
+          )}
           <SelectorTienda />
         </div>
       </div>

@@ -5,15 +5,8 @@
 import { useEffect } from "react";
 import { Check, Minus, Plus, Receipt, Trash2 } from "lucide-react";
 import type { CompraRespuesta } from "../lib/api";
+import type { LineaTicket } from "../lib/ticket-context";
 import { precio } from "../lib/visual";
-
-export type LineaTicket = {
-  sku: string;
-  nombre: string;
-  precio: number;
-  cantidad: number;
-  stock: number;
-};
 
 type Props = {
   lineas: LineaTicket[];

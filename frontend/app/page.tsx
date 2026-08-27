@@ -5,12 +5,13 @@ import { PackageX, Sparkles } from "lucide-react";
 import { BuscadorProducto } from "../componentes/BuscadorProducto";
 import { BloqueRecomendacion } from "../componentes/BloqueRecomendacion";
 import { ProductoTile } from "../componentes/ProductoTile";
-import { Ticket, type LineaTicket } from "../componentes/Ticket";
+import { Ticket } from "../componentes/Ticket";
 import { useCompra } from "../hooks/useCompra";
 import { useProducto, useProductos } from "../hooks/useProductos";
 import { useRecomendaciones } from "../hooks/useRecomendaciones";
-import { ErrorApi, type CompraRespuesta, type Producto } from "../lib/api";
+import { ErrorApi, type Producto } from "../lib/api";
 import { useAvisos } from "../lib/notificaciones";
+import { useTicket } from "../lib/ticket-context";
 import { useTienda } from "../lib/tienda-context";
 import { precio } from "../lib/visual";
 
@@ -38,37 +39,16 @@ function useSaludo(): string {
 export default function Mostrador() {
   const { tiendaId, tienda } = useTienda();
   const { notificar } = useAvisos();
+  const ticket = useTicket();
   const momento = useSaludo();
   const [consulta, setConsulta] = useState("");
   const [sku, setSku] = useState<string | null>(null);
-  const [lineas, setLineas] = useState<LineaTicket[]>([]);
-  const [ultimo, setUltimo] = useState<CompraRespuesta | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const { data: productos = [], isLoading } = useProductos(consulta, tiendaId);
   const { data: seleccionado } = useProducto(sku);
-  const excluir = useMemo(() => lineas.map((l) => l.sku), [lineas]);
+  const excluir = useMemo(() => ticket.lineas.map((l) => l.sku), [ticket.lineas]);
   const { data: recomendacion } = useRecomendaciones(sku, tiendaId, excluir);
   const compra = useCompra();
-
-  // Un ticket pertenece a una plaza: descuenta de su caja y se cobra ahi. Al
-  // cambiar de tienda se vacia, en vez de arrastrar lineas a otra sucursal.
-  useEffect(() => {
-    setLineas([]);
-    setUltimo(null);
-    setError(null);
-  }, [tiendaId]);
-
-  // Cerrar la pestana con un ticket a medias pierde el trabajo del vendedor y
-  // el cliente sigue enfrente. El navegador solo permite pedir confirmacion.
-  useEffect(() => {
-    if (lineas.length === 0) return;
-    function alSalir(evento: BeforeUnloadEvent) {
-      evento.preventDefault();
-    }
-    window.addEventListener("beforeunload", alSalir);
-    return () => window.removeEventListener("beforeunload", alSalir);
-  }, [lineas.length]);
 
   // El catalogo completo alimenta las tarjetas: un candidato puede no estar en
   // los resultados de la busqueda actual.
@@ -81,57 +61,7 @@ export default function Mostrador() {
 
   function agregar(skuAgregar: string) {
     const producto = catalogo.get(skuAgregar);
-    if (!producto) return;
-    if (producto.stock === 0) {
-      notificar("error", "Agotado", `${producto.nombre} no tiene existencia.`);
-      return;
-    }
-    setError(null);
-    setUltimo(null);
-
-    const existente = lineas.find((l) => l.sku === skuAgregar);
-    if (existente && existente.cantidad >= producto.stock) {
-      notificar(
-        "error",
-        "No hay más existencia",
-        `Solo quedan ${producto.stock} de ${producto.nombre}.`,
-      );
-      return;
-    }
-
-    setLineas((actuales) => {
-      const previo = actuales.find((l) => l.sku === skuAgregar);
-      if (previo) {
-        return actuales.map((l) =>
-          l.sku === skuAgregar ? { ...l, cantidad: l.cantidad + 1 } : l,
-        );
-      }
-      return [
-        ...actuales,
-        {
-          sku: producto.sku,
-          nombre: producto.nombre,
-          precio: producto.precio,
-          cantidad: 1,
-          stock: producto.stock,
-        },
-      ];
-    });
-    notificar("exito", "Agregado al ticket", producto.nombre);
-  }
-
-  function cambiarCantidad(skuLinea: string, cantidad: number) {
-    if (cantidad <= 0) {
-      const fuera = lineas.find((l) => l.sku === skuLinea);
-      setLineas((a) => a.filter((l) => l.sku !== skuLinea));
-      if (fuera) notificar("info", "Quitado del ticket", fuera.nombre);
-      return;
-    }
-    setLineas((a) =>
-      a.map((l) =>
-        l.sku === skuLinea ? { ...l, cantidad: Math.min(cantidad, l.stock) } : l,
-      ),
-    );
+    if (producto) ticket.agregar(producto);
   }
 
   /** Cambia el ancla por el sustituto, y tambien en el ticket si ya estaba. */
@@ -139,8 +69,8 @@ export default function Mostrador() {
     const anterior = sku;
     const nuevo = catalogo.get(skuSustituto);
     setSku(skuSustituto);
-    if (anterior && lineas.some((l) => l.sku === anterior)) {
-      setLineas((a) => a.filter((l) => l.sku !== anterior));
+    if (anterior && ticket.lineas.some((l) => l.sku === anterior)) {
+      ticket.quitar(anterior);
       agregar(skuSustituto);
     } else if (nuevo) {
       notificar(
@@ -152,14 +82,13 @@ export default function Mostrador() {
   }
 
   async function cobrar() {
-    setError(null);
+    ticket.registrarError(null);
     try {
       const respuesta = await compra.mutateAsync({
         tienda: tiendaId,
-        items: lineas.map((l) => ({ sku: l.sku, cantidad: l.cantidad })),
+        items: ticket.lineas.map((l) => ({ sku: l.sku, cantidad: l.cantidad })),
       });
-      setUltimo(respuesta);
-      setLineas([]);
+      ticket.registrarCobro(respuesta);
       notificar(
         "exito",
         `Ticket ${respuesta.ticket_id} cobrado`,
@@ -170,7 +99,7 @@ export default function Mostrador() {
         excepcion instanceof ErrorApi
           ? excepcion.message
           : "No se pudo cobrar. Intenta de nuevo.";
-      setError(mensaje);
+      ticket.registrarError(mensaje);
       notificar("error", "No se pudo cobrar", mensaje);
     }
   }
@@ -178,9 +107,12 @@ export default function Mostrador() {
   const agotado = seleccionado?.stock === 0;
   const pocas = !!seleccionado && seleccionado.stock > 0 && seleccionado.stock <= 5;
 
+  // Las tres columnas ocupan exactamente el alto disponible y cada una decide
+  // que scrollea dentro. Con alturas calculadas a mano quedaba un hueco muerto
+  // bajo la lista y bajo el ticket que cambiaba con cada tamano de ventana.
   return (
-    <div className="grid gap-3 lg:grid-cols-[300px_minmax(0,1fr)_300px]">
-      <div className="h-[calc(100vh-9.5rem)] min-h-[22rem]">
+    <div className="grid gap-3 lg:h-full lg:grid-cols-[300px_minmax(0,1fr)_300px] lg:grid-rows-[minmax(0,1fr)]">
+      <div className="h-[55vh] min-h-[18rem] lg:h-auto lg:min-h-0">
         <BuscadorProducto
           consulta={consulta}
           onConsulta={setConsulta}
@@ -191,7 +123,7 @@ export default function Mostrador() {
         />
       </div>
 
-      <div className="flex min-w-0 flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-3 lg:min-h-0 lg:overflow-y-auto">
         {!seleccionado && (
           <section className="tarjeta aparece p-5">
             <h1 className="text-lg font-semibold">
@@ -246,6 +178,11 @@ export default function Mostrador() {
                 </div>
               ))}
             </div>
+
+            <p className="mt-4 text-xs text-acero">
+              El ticket se conserva aunque te vayas al catálogo o a las
+              relaciones. Solo se vacía al cambiar de sucursal.
+            </p>
           </section>
         )}
 
@@ -339,15 +276,15 @@ export default function Mostrador() {
         )}
       </div>
 
-      <div className="h-[calc(100vh-9.5rem)] min-h-[22rem]">
+      <div className="h-[55vh] min-h-[18rem] lg:h-auto lg:min-h-0">
         <Ticket
-          lineas={lineas}
-          onCantidad={cambiarCantidad}
-          onQuitar={(s) => cambiarCantidad(s, 0)}
+          lineas={ticket.lineas}
+          onCantidad={ticket.cambiarCantidad}
+          onQuitar={ticket.quitar}
           onCobrar={cobrar}
           cobrando={compra.isPending}
-          error={error}
-          ultimo={ultimo}
+          error={ticket.error}
+          ultimo={ticket.ultimo}
           nombreTienda={tienda?.nombre ?? ""}
         />
       </div>
