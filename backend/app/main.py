@@ -18,10 +18,11 @@ from .errores import (
     ErrorDominio,
     ProductoDuplicado,
     ProductoNoEncontrado,
+    RelacionNoEncontrada,
     StockInsuficiente,
     TiendaNoEncontrada,
 )
-from .routers import compras, productos
+from .routers import compras, productos, recomendaciones, relaciones
 
 app = FastAPI(
     title="Ferreteria - inventario y recomendaciones",
@@ -41,6 +42,7 @@ app.add_middleware(
 _ESTADOS = {
     ProductoNoEncontrado: 404,
     TiendaNoEncontrada: 404,
+    RelacionNoEncontrada: 404,
     ProductoDuplicado: 409,
     StockInsuficiente: 409,
 }
@@ -60,6 +62,8 @@ def manejar_error_dominio(_: Request, exc: ErrorDominio) -> JSONResponse:
 
 app.include_router(productos.router)
 app.include_router(compras.router)
+app.include_router(recomendaciones.router)
+app.include_router(relaciones.router)
 
 
 @app.get("/api/tiendas")
