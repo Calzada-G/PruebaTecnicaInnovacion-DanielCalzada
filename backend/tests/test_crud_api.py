@@ -53,7 +53,7 @@ def test_lo_creado_aparece_de_inmediato_en_el_listado(cliente):
     cliente.post("/api/productos", json=NUEVO)
 
     listado = cliente.get("/api/productos").json()
-    buscado = cliente.get("/api/productos?q=disco").json()
+    buscado = cliente.get("/api/productos?buscar=disco").json()
 
     assert any(p["sku"] == "SKU950" for p in listado)
     assert [p["sku"] for p in buscado] == ["SKU950"]

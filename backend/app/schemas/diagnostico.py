@@ -7,7 +7,7 @@ en una tarjeta sin color en vez de en un error.
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ProductoCitado(BaseModel):
@@ -16,14 +16,20 @@ class ProductoCitado(BaseModel):
 
 
 class Hallazgo(BaseModel):
-    clave: str
-    nivel: Literal["alerta", "aviso", "oportunidad"]
+    clave: str = Field(
+        description="Identificador estable del tipo de hallazgo, p.ej. `nunca_vendido`."
+    )
+    nivel: Literal["alerta", "aviso", "oportunidad"] = Field(
+        description="Con que color lo pinta el panel. Es cerrado a proposito."
+    )
     titulo: str
     detalle: str
-    #: Que hacer al respecto. Un diagnostico sin accion solo genera ansiedad.
-    accion: str
-    #: Productos afectados en total; `productos` trae solo los primeros.
-    total: int
+    accion: str = Field(
+        description="Que hacer al respecto. Un diagnostico sin accion solo genera ansiedad."
+    )
+    total: int = Field(
+        description="Productos afectados en total; `productos` trae solo los primeros."
+    )
     productos: list[ProductoCitado] = []
 
 

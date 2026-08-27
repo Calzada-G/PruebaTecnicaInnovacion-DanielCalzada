@@ -23,3 +23,7 @@ def obtener(bd: sqlite3.Connection, tienda_id: str) -> sqlite3.Row | None:
 def perfiles(bd: sqlite3.Connection) -> dict[str, str]:
     """Perfil por tienda, tal como lo consume el recomendador por atributos."""
     return {f["id"]: f["perfil"] for f in listar(bd)}
+
+
+def contar(bd: sqlite3.Connection) -> int:
+    return bd.execute("SELECT COUNT(*) AS n FROM tiendas").fetchone()["n"]

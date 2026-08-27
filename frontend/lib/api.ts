@@ -164,9 +164,9 @@ async function pedir<T>(ruta: string, opciones: RequestInit = {}): Promise<T> {
 export const api = {
   tiendas: () => pedir<Tienda[]>("/api/tiendas"),
 
-  productos: (q: string, tienda: string, incluirInactivos = false) => {
+  productos: (buscar: string, tienda: string, incluirInactivos = false) => {
     const p = new URLSearchParams();
-    if (q) p.set("q", q);
+    if (buscar) p.set("buscar", buscar);
     if (tienda) p.set("tienda", tienda);
     if (incluirInactivos) p.set("incluir_inactivos", "true");
     return pedir<Producto[]>(`/api/productos?${p}`);

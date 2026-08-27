@@ -98,8 +98,8 @@ def test_operar_sobre_un_sku_inexistente_falla_igual_en_las_tres_rutas(bd):
 
 def test_la_busqueda_encuentra_por_uso_y_material_no_solo_por_nombre(bd):
     """El vendedor busca 'salino' o 'inoxidable', no el nombre exacto del SKU."""
-    por_uso = {p["sku"] for p in catalogo_service.listar(bd, q="salino")}
-    por_material = {p["sku"] for p in catalogo_service.listar(bd, q="inoxidable")}
+    por_uso = {p["sku"] for p in catalogo_service.listar(bd, buscar="salino")}
+    por_material = {p["sku"] for p in catalogo_service.listar(bd, buscar="inoxidable")}
 
     assert {"SKU007", "SKU025"} <= por_uso
     assert {"SKU007", "SKU025"} <= por_material

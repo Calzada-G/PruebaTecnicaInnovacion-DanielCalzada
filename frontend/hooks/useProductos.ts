@@ -3,10 +3,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type Producto } from "../lib/api";
 
-export function useProductos(q: string, tienda: string, incluirInactivos = false) {
+export function useProductos(
+  buscar: string,
+  tienda: string,
+  incluirInactivos = false,
+) {
   return useQuery({
-    queryKey: ["productos", q, tienda, incluirInactivos],
-    queryFn: () => api.productos(q, tienda, incluirInactivos),
+    queryKey: ["productos", buscar, tienda, incluirInactivos],
+    queryFn: () => api.productos(buscar, tienda, incluirInactivos),
     enabled: Boolean(tienda),
   });
 }

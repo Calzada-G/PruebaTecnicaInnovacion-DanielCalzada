@@ -151,3 +151,14 @@ def guardar_justificacion_ia(
         "UPDATE relaciones SET justificacion_ia = ? WHERE id = ?",
         (texto, id_relacion),
     )
+
+
+def contar(bd: sqlite3.Connection) -> int:
+    return bd.execute("SELECT COUNT(*) AS n FROM relaciones").fetchone()["n"]
+
+
+def contar_redactadas_por_ia(bd: sqlite3.Connection) -> int:
+    """Cuantas tienen ya el texto del LLM en vez del de plantilla."""
+    return bd.execute(
+        "SELECT COUNT(*) AS n FROM relaciones WHERE justificacion_ia IS NOT NULL"
+    ).fetchone()["n"]

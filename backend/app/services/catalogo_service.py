@@ -2,18 +2,25 @@
 
 import sqlite3
 
-from ..errores import ProductoDuplicado, ProductoNoEncontrado
-from ..repositories import productos_repo
+from ..errores import ProductoDuplicado, ProductoNoEncontrado, TiendaNoEncontrada
+from ..repositories import productos_repo, tiendas_repo
 
 
 def listar(
     bd: sqlite3.Connection,
-    q: str | None = None,
+    buscar: str | None = None,
     tienda: str | None = None,
     incluir_inactivos: bool = False,
 ) -> list[dict]:
+    # `tienda` significa lo mismo en toda la API, asi que tiene que fallar
+    # igual en toda la API. Antes esta ruta era la unica que aceptaba una
+    # sucursal inexistente y respondia 200 con el orden alfabetico, lo que
+    # convertia un slug mal escrito en un catalogo que parecia correcto.
+    if tienda and tiendas_repo.obtener(bd, tienda) is None:
+        raise TiendaNoEncontrada(tienda)
+
     filas = productos_repo.listar(
-        bd, q=q, tienda=tienda, solo_activos=not incluir_inactivos
+        bd, buscar=buscar, tienda=tienda, solo_activos=not incluir_inactivos
     )
     return [dict(f) for f in filas]
 

@@ -20,6 +20,9 @@ PRODUCTO = {
 RUTAS = [
     ("GET", "/api/tiendas", None, 200),
     ("GET", "/api/productos", None, 200),
+    ("GET", "/api/productos?buscar=tubo", None, 200),
+    # `tienda` significa lo mismo en toda la API: si no existe, 404 en todas.
+    ("GET", "/api/productos?tienda=narnia", None, 404),
     ("GET", "/api/productos/SKU001", None, 200),
     ("GET", "/api/productos/NO-EXISTE", None, 404),
     ("POST", "/api/productos", PRODUCTO, 201),
@@ -51,6 +54,10 @@ RUTAS = [
     # abre localhost:8000 en el navegador.
     ("GET", "/", None, 200),
     ("PUT", "/api/config/pesos", {"pesos": {"historico": 1.0}}, 200),
+    ("PUT", "/api/config/pesos", {"pesos": {"historico": -1}}, 422),
+    ("PUT", "/api/config/pesos", {"pesos": {"historico": 99}}, 422),
+    ("PUT", "/api/config/pesos", {"pesos": {}}, 422),
+    ("PATCH", "/api/relaciones/1", {"peso_manual": -1}, 422),
 ]
 
 
@@ -125,3 +132,38 @@ def test_el_patch_de_relaciones_devuelve_la_misma_forma_que_el_listado(
 
     assert set(del_patch) == set(del_listado)
     assert del_patch["estado"] == "fijada"
+
+
+def test_la_baja_es_idempotente(cliente):
+    """Repetir DELETE sobre algo ya dado de baja no es un error.
+
+    El efecto buscado -que no se venda- ya se cumplio. Con dos pestanas
+    abiertas, la segunda no deberia ver un fallo por llegar tarde.
+    """
+    cliente.post("/api/productos", json=PRODUCTO)
+
+    primera = cliente.delete(f"/api/productos/{PRODUCTO['sku']}")
+    segunda = cliente.delete(f"/api/productos/{PRODUCTO['sku']}")
+
+    assert primera.status_code == segunda.status_code == 204
+    assert cliente.get(f"/api/productos/{PRODUCTO['sku']}").json()["activo"] is False
+
+
+def test_un_peso_invalido_es_422_y_no_500(cliente):
+    """La base tiene CHECK (peso >= 0); sin validar antes, saltaba como 500."""
+    respuesta = cliente.put("/api/config/pesos", json={"pesos": {"historico": -1}})
+
+    assert respuesta.status_code == 422
+    assert cliente.get("/api/config/pesos").json()["historico"] >= 0
+
+
+def test_salud_reporta_el_contenido_de_la_base(cliente):
+    cuerpo = cliente.get("/api/salud").json()
+
+    assert cuerpo["estado"] == "listo"
+    assert set(cuerpo) == {
+        "estado", "version", "base_de_datos", "origenes_cors", "contenido",
+    }
+    assert cuerpo["contenido"]["tiendas"] == 5
+    assert cuerpo["contenido"]["productos_activos"] == 28
+    assert cuerpo["contenido"]["tickets"] == 42

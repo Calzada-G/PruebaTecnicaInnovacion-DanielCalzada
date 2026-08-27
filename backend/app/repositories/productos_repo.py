@@ -10,7 +10,7 @@ CAMPOS = (
 
 def listar(
     bd: sqlite3.Connection,
-    q: str | None = None,
+    buscar: str | None = None,
     tienda: str | None = None,
     solo_activos: bool = True,
 ) -> list[sqlite3.Row]:
@@ -25,12 +25,12 @@ def listar(
 
     if solo_activos:
         condiciones.append("p.activo = 1")
-    if q:
+    if buscar:
         condiciones.append(
             "(p.nombre LIKE ? OR p.sku LIKE ? OR p.categoria LIKE ?"
             " OR p.material LIKE ? OR p.uso_recomendado LIKE ?)"
         )
-        patron = f"%{q}%"
+        patron = f"%{buscar}%"
         parametros.extend([patron] * 5)
 
     where = f"WHERE {' AND '.join(condiciones)}" if condiciones else ""
@@ -122,3 +122,9 @@ def registrar_movimiento(
            VALUES (?, ?, ?, ?, ?, ?)""",
         (sku, delta, stock_final, motivo, tienda_id, ticket_id),
     )
+
+
+def contar_activos(bd: sqlite3.Connection) -> int:
+    return bd.execute(
+        "SELECT COUNT(*) AS n FROM productos WHERE activo = 1"
+    ).fetchone()["n"]

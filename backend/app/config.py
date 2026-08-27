@@ -45,6 +45,10 @@ ORIGENES_CORS = [
     if o.strip()
 ]
 
+# Version de la API. Se muestra en /docs, en la portada y en el banner de
+# arranque, asi que se declara una vez.
+VERSION = "0.1.0"
+
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 # Se elige por CUOTA, no por capacidad. En el tier gratuito el flash puntero
 # (3.7, al que apunta el alias gemini-flash-latest) da 5 peticiones por minuto
