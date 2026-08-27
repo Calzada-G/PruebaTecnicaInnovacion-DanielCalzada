@@ -8,10 +8,15 @@ venv/
 *.db-shm
 
 .env
+.env.local
 
 node_modules/
 .next/
 next-env.d.ts
+
+# Los regenera `next dev` en cada arranque; no son parte del entregable.
+frontend/AGENTS.md
+frontend/CLAUDE.md
 
 .vscode/
 .idea/
