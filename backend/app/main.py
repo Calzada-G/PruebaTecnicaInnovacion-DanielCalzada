@@ -17,6 +17,7 @@ from .config import ORIGENES_CORS, VERSION
 from .db import conectar
 from .errores import (
     ErrorDominio,
+    IANoDisponible,
     ProductoDuplicado,
     ProductoNoEncontrado,
     RelacionNoEncontrada,
@@ -24,6 +25,7 @@ from .errores import (
     TiendaNoEncontrada,
 )
 from .routers import (
+    analisis,
     compras,
     diagnostico,
     estado,
@@ -116,6 +118,9 @@ _ESTADOS = {
     RelacionNoEncontrada: 404,
     ProductoDuplicado: 409,
     StockInsuficiente: 409,
+    # 503 y no 500: el sistema esta bien, lo que falta es un servicio
+    # externo y opcional.
+    IANoDisponible: 503,
 }
 
 
@@ -138,5 +143,6 @@ app.include_router(compras.router)
 app.include_router(recomendaciones.router)
 app.include_router(relaciones.router)
 app.include_router(diagnostico.router)
+app.include_router(analisis.router)
 app.include_router(tiendas.router)
 app.include_router(estado.router)

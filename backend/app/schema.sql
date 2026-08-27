@@ -88,3 +88,19 @@ CREATE TABLE config_pesos (
     fuente TEXT PRIMARY KEY,
     peso   REAL NOT NULL CHECK (peso >= 0)
 );
+
+-- Analisis del sistema escrito por el LLM. Se guarda con la HUELLA del estado
+-- que analizo: si el sistema no ha cambiado desde entonces, se devuelve este
+-- texto y no se llama al modelo. Es lo que hace que el boton no gaste tokens
+-- por curiosidad.
+CREATE TABLE analisis_ia (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    tienda_id TEXT NOT NULL REFERENCES tiendas (id),
+    huella    TEXT NOT NULL,
+    modelo    TEXT NOT NULL,
+    contenido TEXT NOT NULL,          -- JSON con el analisis ya validado
+    creado_en TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (tienda_id, huella)
+);
+
+CREATE INDEX idx_analisis_tienda ON analisis_ia (tienda_id, creado_en DESC);

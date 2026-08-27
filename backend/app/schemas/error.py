@@ -44,17 +44,18 @@ class ErrorSinExistencia(ErrorRespuesta):
     }
 
 
-def _respuesta(descripcion: str, modelo: type[BaseModel] = ErrorRespuesta) -> dict:
+def respuesta(descripcion: str, modelo: type[BaseModel] = ErrorRespuesta) -> dict:
+    """Una entrada del bloque `responses` de una ruta, ya formada."""
     return {"description": descripcion, "model": modelo}
 
 
 RESPUESTAS = {
-    "producto_no_encontrado": {404: _respuesta("No existe ese SKU.")},
-    "tienda_no_encontrada": {404: _respuesta("No existe esa sucursal.")},
-    "relacion_no_encontrada": {404: _respuesta("No existe esa relacion.")},
-    "sku_duplicado": {409: _respuesta("Ya hay un producto con ese SKU.")},
+    "producto_no_encontrado": {404: respuesta("No existe ese SKU.")},
+    "tienda_no_encontrada": {404: respuesta("No existe esa sucursal.")},
+    "relacion_no_encontrada": {404: respuesta("No existe esa relacion.")},
+    "sku_duplicado": {409: respuesta("Ya hay un producto con ese SKU.")},
     "sin_existencia": {
-        409: _respuesta(
+        409: respuesta(
             "No hay inventario suficiente para alguna linea; no se descuento nada.",
             ErrorSinExistencia,
         )

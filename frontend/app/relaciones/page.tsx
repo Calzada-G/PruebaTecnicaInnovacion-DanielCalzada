@@ -8,6 +8,8 @@ import {
   ajusteDe,
   type Ajuste,
 } from "../../componentes/TablaRelaciones";
+import { PanelAnalisis } from "../../componentes/PanelAnalisis";
+import { useAnalisis, useAnalizar } from "../../hooks/useAnalisis";
 import { useProductos } from "../../hooks/useProductos";
 import {
   useAjustarRelacion,
@@ -22,9 +24,13 @@ import { useTienda } from "../../lib/tienda-context";
  * Los pesos por fuente, expresados como la decision de negocio que representan.
  *
  * El backend guarda numeros por fuente porque es lo que el ranking necesita.
- * Pedirle a un encargado que elija "historico 1.0 / atributos 0.8" es pedirle
- * que adivine; pedirle si prefiere ir sobre seguro o descubrir mas es una
- * pregunta que si sabe responder.
+ * Pedirle a un encargado que elija "historico 1.0 / atributos 0.65" es pedirle
+ * que adivine; pedirle cuanta evidencia exige para ofrecer algo es una pregunta
+ * que si sabe responder.
+ *
+ * `efecto` no es una promesa: es lo MEDIDO sobre los 28 productos y las 5
+ * plazas con estos pesos exactos. Si alguien cambia los numeros, el texto deja
+ * de ser cierto y hay que volver a medir.
  */
 const PREAJUSTES = [
   {
@@ -32,6 +38,7 @@ const PREAJUSTES = [
     titulo: "Solo lo comprobado",
     texto: "Sugiere sobre todo lo que ya se ha vendido junto.",
     consecuencia: "Menos sugerencias, casi todas con ventas detrás.",
+    efecto: "≈2 por producto · 76% con tickets detrás",
     pesos: { historico: 1.0, atributos: 0.35, manual: 1.5 },
   },
   {
@@ -39,13 +46,15 @@ const PREAJUSTES = [
     titulo: "Equilibrado",
     texto: "Combina las ventas con el tipo de producto.",
     consecuencia: "Lo recomendado para operar el día a día.",
-    pesos: { historico: 1.0, atributos: 0.8, manual: 1.5 },
+    efecto: "≈3 por producto · 64% con tickets detrás",
+    pesos: { historico: 1.0, atributos: 0.65, manual: 1.5 },
   },
   {
     id: "descubrir",
     titulo: "Descubrir más",
     texto: "Propone también cosas que nunca se han vendido juntas.",
     consecuencia: "Más sugerencias; útil para mover catálogo parado.",
+    efecto: "≈4 por producto · sin recorte",
     pesos: { historico: 0.7, atributos: 1.0, manual: 1.5 },
   },
 ];
@@ -60,7 +69,7 @@ function preajusteActual(pesos: Record<string, number>): string | null {
 }
 
 export default function Relaciones() {
-  const { tiendaId } = useTienda();
+  const { tiendaId, tienda } = useTienda();
   const { notificar } = useAvisos();
   const [tipo, setTipo] = useState("");
   const [fuente, setFuente] = useState("");
@@ -75,6 +84,8 @@ export default function Relaciones() {
   const { data: pesos = {} } = usePesos();
   const { data: productos = [] } = useProductos("", tiendaId, true);
   const { ajustar, guardarPesos } = useAjustarRelacion();
+  const { data: analisis, isLoading: cargandoAnalisis } = useAnalisis(tiendaId);
+  const analizar = useAnalizar();
 
   const catalogo = useMemo(() => {
     const mapa = new Map<string, Producto>();
@@ -134,6 +145,25 @@ export default function Relaciones() {
     });
   }
 
+  function pedirAnalisis() {
+    analizar.mutate(tiendaId, {
+      onSuccess: (datos) =>
+        notificar(
+          "exito",
+          datos.desde_cache ? "Nada había cambiado" : "Análisis actualizado",
+          datos.desde_cache
+            ? "Se recuperó el análisis anterior sin volver a consultar al modelo."
+            : `${datos.modelo} revisó el catálogo, las ventas y las relaciones de ${tienda?.nombre ?? "la plaza"}.`,
+        ),
+      onError: (e) =>
+        notificar(
+          "error",
+          "No se pudo analizar",
+          e instanceof ErrorApi ? e.message : "Intenta de nuevo.",
+        ),
+    });
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <section className="tarjeta p-4">
@@ -144,7 +174,7 @@ export default function Relaciones() {
             </h1>
             <p className="mt-1 max-w-3xl text-sm text-acero">
               Aquí ves cada sugerencia que el mostrador puede hacer y puedes
-              cambiarla. Los cambios se aplican de inmediato, sin reiniciar nada.
+              cambiarla. Los cambios se aplican de inmediato.
             </p>
           </div>
           <button
@@ -197,6 +227,16 @@ export default function Relaciones() {
         )}
       </section>
 
+      {/* El analista va antes de los modos: primero se lee que esta
+          pasando, despues se decide cuanta evidencia exigir. */}
+      <PanelAnalisis
+        nombreTienda={tienda?.nombre ?? ""}
+        datos={analisis}
+        cargando={cargandoAnalisis}
+        analizando={analizar.isPending}
+        onAnalizar={pedirAnalisis}
+      />
+
       <section className="tarjeta p-4">
         <h2 className="text-sm font-semibold">¿En qué se fija más el sistema?</h2>
         <p className="mt-0.5 text-xs text-acero">
@@ -242,6 +282,14 @@ export default function Relaciones() {
                 </p>
                 <p className="mt-1 text-[11px] leading-snug text-acero opacity-80">
                   {preajuste.consecuencia}
+                </p>
+                {/* El efecto medido, no la intencion: es lo que separa un modo
+                    que hace algo de un texto bonito. */}
+                <p
+                  className="cifra mt-1.5 border-t border-linea pt-1.5 text-[10px]"
+                  style={{ color: "var(--color-acento)" }}
+                >
+                  {preajuste.efecto}
                 </p>
               </button>
             );

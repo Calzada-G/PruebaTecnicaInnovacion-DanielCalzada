@@ -55,3 +55,11 @@ class RelacionNoEncontrada(ErrorDominio):
     def __init__(self, id_relacion: int):
         self.id_relacion = id_relacion
         super().__init__(f"No existe la relacion {id_relacion}.")
+
+
+class IANoDisponible(ErrorDominio):
+    """El analisis no se pudo generar: sin clave, sin red o respuesta ilegible.
+
+    Es un 503 y no un 500: el sistema esta bien, lo que falta es un servicio
+    externo y opcional. Todo lo demas sigue funcionando sin el.
+    """

@@ -107,6 +107,37 @@ export type Diagnostico = {
   hallazgos: Hallazgo[];
 };
 
+export type PuntoAnalisis = {
+  titulo: string;
+  analisis: string;
+  dato: string;
+  impacto: "alto" | "medio" | "bajo";
+  skus: string[];
+};
+
+export type Analisis = {
+  resumen: string;
+  negocio: PuntoAnalisis[];
+  sistema: PuntoAnalisis[];
+  decisiones: { titulo: string; porque: string; accion: string }[];
+};
+
+export type RespuestaAnalisis = {
+  tienda: string;
+  /** Hay clave de IA configurada. Sin ella el resto del sistema va igual. */
+  disponible: boolean;
+  hay_analisis: boolean;
+  /** Identifica el estado del sistema ahora: catálogo, ventas, relaciones. */
+  huella_actual: string;
+  /** El análisis guardado describe el sistema actual: no hay nada nuevo. */
+  vigente: boolean;
+  desde_cache: boolean;
+  analisis: Analisis | null;
+  modelo: string | null;
+  generado_en: string | null;
+  huella: string | null;
+};
+
 /** Error de negocio con los datos que el mostrador necesita para el mensaje. */
 export class ErrorApi extends Error {
   estado: number;
@@ -197,6 +228,15 @@ export const api = {
 
   diagnostico: (tienda: string) =>
     pedir<Diagnostico>(`/api/diagnostico?${new URLSearchParams({ tienda })}`),
+
+  analisisGuardado: (tienda: string) =>
+    pedir<RespuestaAnalisis>(`/api/analisis?${new URLSearchParams({ tienda })}`),
+
+  analizar: (tienda: string) =>
+    pedir<RespuestaAnalisis>("/api/analisis", {
+      method: "POST",
+      body: JSON.stringify({ tienda }),
+    }),
 
   comprar: (
     tienda: string,
