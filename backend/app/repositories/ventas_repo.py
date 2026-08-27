@@ -63,31 +63,5 @@ def leer_respuesta(bd: sqlite3.Connection, clave: str) -> str | None:
     return None if fila is None else fila["respuesta"]
 
 
-def canastas(bd: sqlite3.Connection) -> dict[str, dict]:
-    """Tickets agrupados, insumo de las reglas de asociacion."""
-    filas = bd.execute(
-        "SELECT ticket_id, sku, cantidad, tienda_id FROM ventas ORDER BY ticket_id"
-    ).fetchall()
-    agrupado: dict[str, dict] = {}
-    for f in filas:
-        ticket = agrupado.setdefault(
-            f["ticket_id"], {"tienda": f["tienda_id"], "skus": set()}
-        )
-        ticket["skus"].add(f["sku"])
-    return agrupado
 
 
-def unidades_por_sku(
-    bd: sqlite3.Connection, tienda_id: str | None = None
-) -> dict[str, int]:
-    if tienda_id:
-        filas = bd.execute(
-            """SELECT sku, SUM(cantidad) AS n FROM ventas
-                WHERE tienda_id = ? GROUP BY sku""",
-            (tienda_id,),
-        ).fetchall()
-    else:
-        filas = bd.execute(
-            "SELECT sku, SUM(cantidad) AS n FROM ventas GROUP BY sku"
-        ).fetchall()
-    return {f["sku"]: f["n"] for f in filas}

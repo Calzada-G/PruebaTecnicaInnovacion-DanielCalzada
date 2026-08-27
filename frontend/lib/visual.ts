@@ -42,7 +42,7 @@ export function iconoDe(categoria: string): LucideIcon {
   return ICONOS[categoria] ?? Wrench;
 }
 
-export type Ambiente = "costero" | "sol" | "humedad" | "interior" | "neutro";
+type Ambiente = "costero" | "sol" | "humedad" | "interior" | "neutro";
 
 /**
  * Misma clasificacion que perfiles.py en el backend, replicada para pintar.

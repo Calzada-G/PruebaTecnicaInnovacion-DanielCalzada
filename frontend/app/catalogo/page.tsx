@@ -19,33 +19,87 @@ const VACIO = {
   stock: "",
 };
 
+/**
+ * Definicion de los campos del alta. Los limites replican los del backend
+ * (`schemas/producto.py`) para que el usuario se entere al escribir y no al
+ * enviar; el backend sigue siendo la autoridad y valida igual.
+ */
 const CAMPOS = [
-  { id: "sku", etiqueta: "SKU", tipo: "text", req: true, ayuda: "Ej. SKU029" },
-  { id: "nombre", etiqueta: "Nombre", tipo: "text", req: true, ayuda: "" },
+  {
+    id: "sku",
+    etiqueta: "SKU",
+    tipo: "text",
+    req: true,
+    largo: 24,
+    marcador: "SKU029",
+    // Viaja en la URL: sin espacios, acentos ni barras. Se guarda en mayusculas.
+    patron: "[A-Za-z0-9][A-Za-z0-9_-]{1,23}",
+    ayuda: "Letras, números, guion y guion bajo. Se guarda en mayúsculas.",
+  },
+  {
+    id: "nombre",
+    etiqueta: "Nombre",
+    tipo: "text",
+    req: true,
+    largo: 120,
+    marcador: "Disco de corte para metal 7”",
+    ayuda: "Lo que el vendedor busca y lee el cliente.",
+  },
   {
     id: "categoria",
     etiqueta: "Categoría",
     tipo: "text",
     req: true,
-    ayuda: "herramienta, consumible, EPP…",
+    largo: 40,
+    marcador: "consumible",
+    lista: "categorias-existentes",
+    ayuda: "Decide el icono. Reutiliza una existente si encaja.",
   },
   {
     id: "material",
     etiqueta: "Material",
     tipo: "text",
     req: false,
-    ayuda: "Define el color del chip",
+    largo: 60,
+    marcador: "óxido de aluminio",
+    ayuda: "Decide el color del chip de ambiente.",
   },
   {
     id: "uso_recomendado",
     etiqueta: "Uso recomendado",
     tipo: "text",
     req: false,
-    ayuda: "De aquí salen las sugerencias",
+    largo: 80,
+    marcador: "corte de metal en taller",
+    ayuda: "El campo más importante: de aquí salen las sugerencias.",
   },
-  { id: "descripcion", etiqueta: "Descripción", tipo: "text", req: false, ayuda: "" },
-  { id: "precio", etiqueta: "Precio", tipo: "number", req: true, ayuda: "" },
-  { id: "stock", etiqueta: "Existencia", tipo: "number", req: true, ayuda: "" },
+  {
+    id: "descripcion",
+    etiqueta: "Descripción",
+    tipo: "text",
+    req: false,
+    largo: 300,
+    marcador: "Disco abrasivo reforzado para esmeriladora angular",
+    ayuda: "",
+  },
+  {
+    id: "precio",
+    etiqueta: "Precio",
+    tipo: "number",
+    req: true,
+    largo: 9_999_999,
+    marcador: "75.00",
+    ayuda: "",
+  },
+  {
+    id: "stock",
+    etiqueta: "Existencia",
+    tipo: "number",
+    req: true,
+    largo: 1_000_000,
+    marcador: "20",
+    ayuda: "Unidades disponibles en el inventario compartido.",
+  },
 ] as const;
 
 export default function Catalogo() {
@@ -63,6 +117,7 @@ export default function Catalogo() {
 
   const activos = productos.filter((p) => p.activo).length;
   const agotados = productos.filter((p) => p.activo && p.stock === 0).length;
+  const categorias = [...new Set(productos.map((p) => p.categoria))].sort();
 
   async function guardarAlta(evento: React.FormEvent) {
     evento.preventDefault();
@@ -202,29 +257,58 @@ export default function Catalogo() {
       {alta && (
         <form onSubmit={guardarAlta} className="tarjeta aparece p-4">
           <h2 className="mb-3 text-sm font-semibold">Alta de producto</h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {CAMPOS.map((campo) => (
-              <label key={campo.id} className="flex min-w-0 flex-col gap-1">
-                <span className="text-xs font-medium text-acero">
-                  {campo.etiqueta}
-                  {campo.req && <span style={{ color: "var(--color-error)" }}> *</span>}
-                </span>
-                <input
-                  type={campo.tipo}
-                  min={campo.tipo === "number" ? 0 : undefined}
-                  step={campo.id === "precio" ? "0.01" : undefined}
-                  required={campo.req}
-                  value={borrador[campo.id]}
-                  onChange={(e) =>
-                    setBorrador((b) => ({ ...b, [campo.id]: e.target.value }))
-                  }
-                  className="rounded-[var(--radio)] border border-linea px-2 py-1.5 text-sm outline-none transition-colors focus:border-[var(--color-acento)]"
-                />
-                {campo.ayuda && (
-                  <span className="text-[11px] text-acero">{campo.ayuda}</span>
-                )}
-              </label>
+          {/* Sugiere las categorias ya en uso para no acabar con 'EPP', 'epp'
+              y 'E.P.P.' como tres categorias distintas. */}
+          <datalist id="categorias-existentes">
+            {categorias.map((c) => (
+              <option key={c} value={c} />
             ))}
+          </datalist>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {CAMPOS.map((campo) => {
+              const esNumero = campo.tipo === "number";
+              const escrito = borrador[campo.id].length;
+              return (
+                <label key={campo.id} className="flex min-w-0 flex-col gap-1">
+                  <span className="flex items-baseline justify-between gap-2 text-xs font-medium text-acero">
+                    <span>
+                      {campo.etiqueta}
+                      {campo.req && (
+                        <span style={{ color: "var(--color-error)" }}> *</span>
+                      )}
+                    </span>
+                    {!esNumero && escrito > campo.largo * 0.7 && (
+                      <span className="cifra text-[10px]">
+                        {escrito}/{campo.largo}
+                      </span>
+                    )}
+                  </span>
+                  <input
+                    type={campo.tipo}
+                    required={campo.req}
+                    value={borrador[campo.id]}
+                    placeholder={campo.marcador}
+                    onChange={(e) =>
+                      setBorrador((b) => ({ ...b, [campo.id]: e.target.value }))
+                    }
+                    // Los numeros acotan con min/max; el texto con maxLength.
+                    min={esNumero ? 0 : undefined}
+                    max={esNumero ? campo.largo : undefined}
+                    step={campo.id === "precio" ? "0.01" : esNumero ? "1" : undefined}
+                    maxLength={esNumero ? undefined : campo.largo}
+                    pattern={"patron" in campo ? campo.patron : undefined}
+                    list={"lista" in campo ? campo.lista : undefined}
+                    className="rounded-[var(--radio)] border border-linea px-2 py-1.5 text-sm outline-none transition-colors placeholder:text-acero/60 focus:border-[var(--color-acento)]"
+                  />
+                  {campo.ayuda && (
+                    <span className="text-[11px] leading-snug text-acero">
+                      {campo.ayuda}
+                    </span>
+                  )}
+                </label>
+              );
+            })}
           </div>
           <div className="mt-4 flex gap-2">
             <button

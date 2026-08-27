@@ -38,7 +38,7 @@ export type Candidato = {
   lift: number | null;
 };
 
-export type Recomendacion = {
+type Recomendacion = {
   sustituto: Candidato | null;
   complementos: Candidato[];
 };
@@ -78,7 +78,7 @@ export type Relacion = {
   nombre_origen: string;
   nombre_destino: string;
   stock_destino: number;
-  activo_destino: number;
+  activo_destino: boolean;
 };
 
 /** Error de negocio con los datos que el mostrador necesita para el mensaje. */

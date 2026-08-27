@@ -13,9 +13,17 @@ from ..repositories import relaciones_repo
 
 
 def listar(
-    bd: sqlite3.Connection, tipo: str | None = None, fuente: str | None = None
+    bd: sqlite3.Connection,
+    tipo: str | None = None,
+    fuente: str | None = None,
+    id_relacion: int | None = None,
 ) -> list[dict]:
-    return [dict(f) for f in relaciones_repo.listar(bd, tipo=tipo, fuente=fuente)]
+    return [
+        dict(f)
+        for f in relaciones_repo.listar(
+            bd, tipo=tipo, fuente=fuente, id_relacion=id_relacion
+        )
+    ]
 
 
 def ajustar(bd: sqlite3.Connection, id_relacion: int, cambios: dict) -> dict:
@@ -30,7 +38,8 @@ def ajustar(bd: sqlite3.Connection, id_relacion: int, cambios: dict) -> dict:
     except Exception:
         bd.rollback()
         raise
-    return dict(relaciones_repo.obtener(bd, id_relacion))
+    # Se devuelve la misma representacion que el listado, no la fila cruda.
+    return listar(bd, id_relacion=id_relacion)[0]
 
 
 def leer_pesos(bd: sqlite3.Connection) -> dict[str, float]:

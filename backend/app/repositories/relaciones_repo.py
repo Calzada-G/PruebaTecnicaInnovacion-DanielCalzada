@@ -66,8 +66,17 @@ def eliminar_huerfanas(bd: sqlite3.Connection, vigentes: list[tuple]) -> int:
 
 
 def listar(
-    bd: sqlite3.Connection, tipo: str | None = None, fuente: str | None = None
+    bd: sqlite3.Connection,
+    tipo: str | None = None,
+    fuente: str | None = None,
+    id_relacion: int | None = None,
 ) -> list[sqlite3.Row]:
+    """Relaciones con el nombre y la existencia del producto destino.
+
+    Filtrar por `id_relacion` devuelve una sola fila con EXACTAMENTE la misma
+    forma que el listado. Asi el PATCH responde la misma representacion que el
+    GET sin duplicar el JOIN en otra consulta.
+    """
     condiciones, parametros = [], []
     if tipo:
         condiciones.append("r.tipo = ?")
@@ -75,6 +84,9 @@ def listar(
     if fuente:
         condiciones.append("r.fuente = ?")
         parametros.append(fuente)
+    if id_relacion is not None:
+        condiciones.append("r.id = ?")
+        parametros.append(id_relacion)
     where = f"WHERE {' AND '.join(condiciones)}" if condiciones else ""
     return bd.execute(
         f"""SELECT {CAMPOS.replace('id,', 'r.id,')},

@@ -59,6 +59,17 @@ export default function Mostrador() {
     setError(null);
   }, [tiendaId]);
 
+  // Cerrar la pestana con un ticket a medias pierde el trabajo del vendedor y
+  // el cliente sigue enfrente. El navegador solo permite pedir confirmacion.
+  useEffect(() => {
+    if (lineas.length === 0) return;
+    function alSalir(evento: BeforeUnloadEvent) {
+      evento.preventDefault();
+    }
+    window.addEventListener("beforeunload", alSalir);
+    return () => window.removeEventListener("beforeunload", alSalir);
+  }, [lineas.length]);
+
   // El catalogo completo alimenta las tarjetas: un candidato puede no estar en
   // los resultados de la busqueda actual.
   const { data: catalogoCompleto = [] } = useProductos("", tiendaId);

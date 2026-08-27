@@ -137,7 +137,26 @@ python scripts/evaluar.py    # tabla real contra 4 baselines
 | `test_compra.py` | Atomicidad del ticket, idempotencia, casos límite |
 | `test_crud.py` | CRUD a nivel de servicio y borrado lógico |
 | `test_crud_api.py` | **Ciclo completo por HTTP**: alta → edición → baja → reactivación → venta, y el efecto de cada operación sobre lo que el mostrador puede vender y recomendar |
+| `test_contrato_api.py` | **El contrato que consume el frontend**: código de estado de las 26 rutas, forma exacta del JSON, y que `activo` sea booleano en todos los endpoints |
 | `test_recomendaciones.py` | Filtros duros, cold start, bloquear/fijar/peso |
+
+### Códigos de estado, ruta por ruta
+
+`test_contrato_api.py` los fija para que no cambien por accidente:
+
+| Situación | Código |
+|---|---|
+| Lectura correcta | `200` |
+| Alta correcta · compra correcta | `201` |
+| Baja lógica correcta | `204` (sin cuerpo) |
+| Producto de baja que se intenta vender | `400` |
+| SKU, tienda o relación inexistente | `404` |
+| SKU duplicado · sin existencia suficiente | `409` |
+| Datos inválidos (longitud, patrón, rango, campo ausente) | `422` |
+
+El error de stock además lleva `sku` y `disponible` en el cuerpo, porque el
+mostrador necesita el número para decir «Quedan 8» y no un texto que tendría que
+parsear.
 
 **Resultado de la evaluación** (leave-one-out sobre las 42 canastas, 89
 instancias, sin fuga de datos):
@@ -577,6 +596,46 @@ dependería de quién escribió cada llamada. `lib/api.ts` normaliza la respuest
 error de FastAPI —incluida la lista de errores de validación de Pydantic, que
 tiene otra forma— en una única clase `ErrorApi` que lleva `sku` y `disponible`.
 
+## 5.b Validación de entrada
+
+Los límites se declaran **una sola vez** en `schemas/producto.py` como tipos
+reutilizables, y se usan igual en el alta y en la edición. Duplicarlos en los dos
+modelos era la vía segura para que un día divergieran y el `PATCH` aceptara lo
+que el `POST` rechaza.
+
+```python
+Nombre = Annotated[Texto, StringConstraints(strip_whitespace=True,
+                                            min_length=2, max_length=120)]
+```
+
+| Campo | Límite | Por qué ese límite |
+|---|---|---|
+| `sku` | 2–24, `[A-Za-z0-9][A-Za-z0-9_-]*`, a mayúsculas | **Viaja en la URL** (`/api/productos/{sku}`): un espacio, un acento o una barra rompen el enrutado. Normalizar a mayúsculas evita que `sku001` y `SKU001` sean dos productos |
+| `nombre` | 2–120 | El más largo del catálogo real mide 44. Margen amplio, tope finito |
+| `categoria` | 2–40 | Decide el icono |
+| `material` | 0–60 | Decide el color del chip de ambiente |
+| `uso_recomendado` | 0–80 | El campo del que salen las sugerencias |
+| `descripcion` | 0–300 | |
+| `precio` | 0 – 9 999 999 | Sin tope cabe `1e308`, que rompe cualquier suma posterior |
+| `stock` | 0 – 1 000 000 | |
+
+**Caracteres invisibles.** Un validador compartido rechaza saltos de línea,
+tabuladores y caracteres de control, y colapsa espacios repetidos. Llegan casi
+siempre al pegar desde Excel o un PDF: no rompen la base —las consultas son
+parametrizadas— pero descuadran tablas y hacen que dos productos idénticos
+parezcan distintos.
+
+**El frontend replica los límites, no los sustituye.** Cada campo lleva
+`maxLength`, `min`/`max`, `pattern` y un contador que aparece al llegar al 70 %
+del cupo, para que el usuario se entere **al escribir y no al enviar**. El
+backend sigue siendo la autoridad y valida igual: la interfaz es una comodidad,
+no una defensa.
+
+**Ayudas para dar de alta.** Cada campo tiene *placeholder* con un ejemplo real y
+una línea de ayuda que dice para qué sirve (*«El campo más importante: de aquí
+salen las sugerencias»*). La categoría ofrece un `datalist` con las ya existentes,
+para no acabar con `EPP`, `epp` y `E.P.P.` como tres categorías distintas.
+
 ## 6. Diseño de la API
 
 Orientada a recursos, sin ceremonia REST que no aporte:
@@ -717,6 +776,23 @@ bueno es que la base ya está preparada:
   no se registra: hay que guardar si una línea entró al ticket *desde una
   sugerencia* y de qué fuente. Sin eso no se puede responder «¿está subiendo las
   ventas?», que es la pregunta del cliente. **Sería lo primero que añadiría.**
+
+## 3.b Detalles de producto terminado que sí se implementaron
+
+Cosas pequeñas que no son «funcionalidad» pero separan una demo de un sistema
+usable. Ninguna exigió reingeniería:
+
+| Detalle | Por qué importa en un mostrador |
+|---|---|
+| **Validación con límites y patrones** | Ver §5.b. Impide SKUs que rompen la URL y textos pegados desde Excel con caracteres invisibles |
+| **Placeholders y ayuda por campo** | Quien da de alta un producto no debería adivinar qué va en `uso_recomendado` |
+| **`datalist` de categorías existentes** | Evita `EPP` / `epp` / `E.P.P.` como tres categorías |
+| **Contador de caracteres al 70 % del cupo** | Avisa antes de que el campo se corte, no después |
+| **Confirmación antes de dar de baja** | Es la única acción destructiva de la interfaz |
+| **`Ctrl+Enter` para cobrar** | El vendedor viene de escribir en el buscador; no debería soltar el teclado para cerrar la venta |
+| **Aviso al cerrar con ticket abierto** | Cerrar la pestaña a media venta pierde el trabajo y el cliente sigue enfrente |
+| **`/` para enfocar el buscador, flechas y Enter** | Teclado antes que ratón |
+| **Estados vacíos que enseñan** | El primer arranque explica qué hace el sistema en vez de mostrar una tabla en blanco |
 
 ## 4. Otras funcionalidades que valdría la pena
 

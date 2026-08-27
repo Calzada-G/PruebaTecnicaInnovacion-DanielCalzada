@@ -2,6 +2,7 @@
 
 /** Ticket en curso. Componente de presentacion puro. */
 
+import { useEffect } from "react";
 import { Check, Minus, Plus, Receipt, Trash2 } from "lucide-react";
 import type { CompraRespuesta } from "../lib/api";
 import { precio } from "../lib/visual";
@@ -37,6 +38,19 @@ export function Ticket({
 }: Props) {
   const total = lineas.reduce((suma, l) => suma + l.precio * l.cantidad, 0);
   const piezas = lineas.reduce((suma, l) => suma + l.cantidad, 0);
+
+  // Ctrl+Enter cobra desde cualquier parte: el vendedor viene de escribir en el
+  // buscador y no deberia soltar el teclado para cerrar la venta.
+  useEffect(() => {
+    function alPulsar(evento: KeyboardEvent) {
+      if (evento.key === "Enter" && evento.ctrlKey && lineas.length && !cobrando) {
+        evento.preventDefault();
+        onCobrar();
+      }
+    }
+    window.addEventListener("keydown", alPulsar);
+    return () => window.removeEventListener("keydown", alPulsar);
+  }, [lineas.length, cobrando, onCobrar]);
 
   return (
     <div className="tarjeta flex h-full flex-col overflow-hidden">
@@ -168,6 +182,11 @@ export function Ticket({
         >
           {cobrando ? "Cobrando…" : "Cobrar"}
         </button>
+        {lineas.length > 0 && (
+          <p className="mt-1 text-center text-[10px] text-acero">
+            <span className="cifra">Ctrl+Enter</span> para cobrar
+          </p>
+        )}
       </div>
     </div>
   );

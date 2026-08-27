@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from ..db import obtener_bd
+from ..schemas.recomendacion import RelacionSalida
 from ..services import relaciones_service
 
 router = APIRouter(prefix="/api", tags=["relaciones"])
@@ -20,7 +21,7 @@ class PesosFuentes(BaseModel):
     pesos: dict[str, float]
 
 
-@router.get("/relaciones")
+@router.get("/relaciones", response_model=list[RelacionSalida])
 def listar(
     tipo: str | None = None,
     fuente: str | None = None,
@@ -29,7 +30,7 @@ def listar(
     return relaciones_service.listar(bd, tipo=tipo, fuente=fuente)
 
 
-@router.patch("/relaciones/{id_relacion}")
+@router.patch("/relaciones/{id_relacion}", response_model=RelacionSalida)
 def ajustar(
     id_relacion: int,
     cuerpo: AjusteRelacion,

@@ -21,7 +21,7 @@ import {
 
 export type TipoAviso = "exito" | "error" | "info";
 
-export type Aviso = {
+type Aviso = {
   id: number;
   tipo: TipoAviso;
   titulo: string;
