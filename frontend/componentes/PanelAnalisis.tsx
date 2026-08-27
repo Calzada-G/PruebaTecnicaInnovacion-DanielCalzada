@@ -223,11 +223,10 @@ export function PanelAnalisis({
           )}
 
           <p className="text-[10px] text-acero">
-            Escrito por <span className="cifra">{datos?.modelo}</span> el{" "}
-            <span className="cifra">{datos?.generado_en}</span>
+            Generado el <span className="cifra">{datos?.generado_en}</span>
             {datos?.desde_cache && " · recuperado sin volver a consultar"}. Es
-            una opinión de un modelo sobre los datos, no una regla del sistema:
-            lo que se recomienda en el mostrador no lo decide esto.
+            una lectura automática de los datos, no una regla del sistema: lo
+            que se recomienda en el mostrador no lo decide esto.
           </p>
         </div>
       )}

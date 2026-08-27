@@ -153,7 +153,7 @@ export default function Relaciones() {
           datos.desde_cache ? "Nada había cambiado" : "Análisis actualizado",
           datos.desde_cache
             ? "Se recuperó el análisis anterior sin volver a consultar al modelo."
-            : `${datos.modelo} revisó el catálogo, las ventas y las relaciones de ${tienda?.nombre ?? "la plaza"}.`,
+            : `Se revisó el catálogo, las ventas y las relaciones de ${tienda?.nombre ?? "la plaza"}.`,
         ),
       onError: (e) =>
         notificar(
@@ -238,7 +238,7 @@ export default function Relaciones() {
       />
 
       <section className="tarjeta p-4">
-        <h2 className="text-sm font-semibold">¿En qué se fija más el sistema?</h2>
+        <h2 className="text-sm font-semibold">Ajusta los modos del sistema.</h2>
         <p className="mt-0.5 text-xs text-acero">
           Cambia el equilibrio entre lo ya vendido y el tipo de producto.
         </p>

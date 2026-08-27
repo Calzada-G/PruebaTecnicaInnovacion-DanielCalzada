@@ -38,6 +38,13 @@ def sin_clave(texto: str) -> str:
     return texto.replace(GEMINI_API_KEY, "***") if GEMINI_API_KEY else texto
 
 
+# La latencia la manda el texto que el modelo ESCRIBE, no el que lee. Medido
+# con el retrato completo de una plaza (6000 tokens de entrada): 3.7s sin tope
+# y 3.1s con el. Ademas evita que un dia devuelva quince puntos de mil
+# caracteres que de todas formas se van a recortar al guardarlos.
+MAXIMO_TOKENS_SALIDA = 900
+
+
 def pedir_json(instruccion: str, temperatura: float = 0.3) -> dict:
     """Una peticion, una respuesta JSON ya parseada.
 
@@ -55,6 +62,11 @@ def pedir_json(instruccion: str, temperatura: float = 0.3) -> dict:
         "generationConfig": {
             "responseMimeType": "application/json",
             "temperature": temperatura,
+            "maxOutputTokens": MAXIMO_TOKENS_SALIDA,
+            # Explicito, no por defecto: los modelos de razonamiento activan
+            # una fase de pensamiento que aqui solo suma segundos. La tarea es
+            # resumir datos que ya vienen calculados, no deducirlos.
+            "thinkingConfig": {"thinkingBudget": 0},
         },
     }
 
