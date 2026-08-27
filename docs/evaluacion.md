@@ -13,7 +13,7 @@
 
 | Recomendador | hit-rate@3 | IC 95% (Wilson) | MRR |
 |---|---:|:---:|---:|
-| **hibrido (este sistema)** | 0.506 (45/89) | [0.404, 0.607] | 0.343 |
+| **hibrido (este sistema)** | 0.472 (42/89) | [0.372, 0.575] | 0.330 |
 | aleatorio con stock | 0.112 (10/89) | [0.062, 0.195] | 0.071 |
 | mas vendido global | 0.112 (10/89) | [0.062, 0.195] | 0.052 |
 | mas vendido en la tienda | 0.337 (30/89) | [0.247, 0.440] | 0.180 |
@@ -31,6 +31,25 @@ La razon de fondo es estructural: solo 8 de los 45 pares co-ocurrentes
 aparecen en mas de un ticket. Un test de canasta no puede premiar lo que
 nunca se vendio junto, y justamente ahi es donde este sistema aporta. Por
 eso la evaluacion sigue con dos comprobaciones cualitativas.
+
+### Que cuesta y que da cada modo del panel
+
+Los tres modos de la pantalla de Relaciones no son texto: cambian cuanta
+evidencia se exige para ofrecer algo. Aqui esta el precio de cada uno,
+medido sobre las mismas 89 instancias.
+
+| Modo | hit-rate@3 | MRR | Sugerencias por producto |
+|---|---:|---:|---:|
+| solo lo comprobado | 0.326 (29/89) | 0.217 | 2.2 |
+| equilibrado | 0.472 (42/89) | 0.330 | 3.4 |
+| descubrir mas | 0.494 (44/89) | 0.335 | 4.5 |
+
+**Exigir mas evidencia cuesta aciertos, y eso es correcto.** «Solo lo
+comprobado» acierta menos porque ofrece menos: recorta la cola de
+sugerencias deducidas, y en esa cola caia algun acierto. Es la decision
+que el negocio toma conscientemente -precision antes que cobertura- y
+por eso el panel la ofrece como un modo y no como un valor por defecto
+escondido.
 
 ## 2. Conjunto dorado de dominio
 
@@ -88,19 +107,21 @@ hablar de esa plaza; el perfil costero si.
 **SKU005 - Tornillo acero al carbón 1/4 (caja 100)**
 
 - Mejor para esta plaza: `SKU007` Tornillo acero inoxidable 316 1/4 (caja 100) - acero inoxidable 316: resiste corrosion salina. El actual es para interior y esta plaza es costera y salina.
-- Para terminar el trabajo: `SKU015` Pintura vinílica interior (atributos)
+- Para terminar el trabajo: `SKU015` Pintura vinílica interior (historico)
 - Para terminar el trabajo: `SKU021` Guantes de carnaza (atributos)
 - Para terminar el trabajo: `SKU008` Lámina galvanizada calibre 24 (atributos)
 
 **SKU010 - Tubo PVC cédula 40 3/4**
 
 - Mejor para esta plaza: `SKU011` Tubo CPVC estabilizado UV 3/4 - CPVC estabilizado UV: resiste radiacion solar directa. El actual es para interior y esta plaza es costera y salina.
-- Para terminar el trabajo: `SKU012` Cemento para PVC 250ml (atributos)
-- Para terminar el trabajo: `SKU013` Sellador de silicón (atributos)
+- Para terminar el trabajo: `SKU012` Cemento para PVC 250ml (historico)
+- Para terminar el trabajo: `SKU013` Sellador de silicón (historico)
 
 **SKU024 - Candado acero al carbón**
 
 - Mejor para esta plaza: `SKU025` Candado acero inoxidable marino - acero inoxidable marino: resiste corrosion salina. El actual es para interior y esta plaza es costera y salina.
+- Para terminar el trabajo: `SKU005` Tornillo acero al carbón 1/4 (caja 100) (historico)
+- Para terminar el trabajo: `SKU022` Cable eléctrico calibre 12 rollo 100m (historico)
 
 ## 4. Limitaciones declaradas
 

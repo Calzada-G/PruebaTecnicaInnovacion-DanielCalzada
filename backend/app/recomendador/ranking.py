@@ -13,6 +13,37 @@ from .base import Candidato, FuenteRecomendacion
 BONO_FIJADA = 10.0
 
 
+def exigencia(pesos: dict[str, float]) -> float:
+    """Que tan cerca del mejor candidato hay que estar para seguir saliendo.
+
+    SIN ESTO LOS PESOS NO CAMBIABAN NADA. Medido: con los tres modos del panel,
+    de 140 consultas (28 productos x 5 plazas) cambiaba el orden en 45, 60 y 20
+    casos, y el CONJUNTO de sugerencias en cero. La razon es que un peso solo
+    multiplica el puntaje, y como casi ningun producto tiene mas de seis
+    candidatos, el tope nunca recorta: nadie entra ni sale, solo se reordenan.
+
+    Un peso por fuente responde "cual prefiero", pero el negocio esta
+    preguntando otra cosa: "cuanta evidencia exijo para ofrecer algo". Eso es un
+    corte, no un multiplicador.
+
+    Se deriva de los pesos ya existentes en vez de guardarse aparte, para que
+    siga habiendo un solo sitio que configurar:
+
+        atributos muy por debajo de historico  -> exigente  (solo lo comprobado)
+        atributos a la par o por encima        -> permisivo (descubrir mas)
+
+    El corte es RELATIVO al mejor candidato de cada consulta, nunca absoluto:
+    asi una plaza sin historico -Merida- se queda con sus sugerencias por
+    atributos en vez de quedarse en blanco, que es lo que pasaria con un umbral
+    fijo. Lo que cambia ahi es cuantas acompanan a la mejor, no que desaparezca.
+    """
+    historico = pesos.get("historico", 1.0)
+    atributos = pesos.get("atributos", 1.0)
+    if historico <= 0 or atributos >= historico:
+        return 0.0
+    return 1 - atributos / historico
+
+
 def _puntuar(
     candidato: Candidato, pesos: dict[str, float], ajuste: dict | None
 ) -> float:
@@ -113,11 +144,16 @@ def mezclar(
     sustituto = serializar(sustitutos[0][1], sustitutos[0][0]) if sustitutos else None
     sku_sustituto = sustituto["sku"] if sustituto else None
 
+    restantes = [(p, c) for p, c in complementos if c.sku != sku_sustituto]
+
+    # El corte es lo que hace que cambiar de modo cambie QUE se ofrece y no
+    # solo en que orden. Relativo al mejor de esta consulta, asi que el primero
+    # siempre pasa: exigir mas evidencia acorta la lista, nunca la vacia.
+    if restantes:
+        minimo = restantes[0][0] * exigencia(pesos)
+        restantes = [(p, c) for p, c in restantes if p >= minimo]
+
     return {
         "sustituto": sustituto,
-        "complementos": [
-            serializar(c, p)
-            for p, c in complementos
-            if c.sku != sku_sustituto
-        ][:limite],
+        "complementos": [serializar(c, p) for p, c in restantes][:limite],
     }

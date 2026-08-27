@@ -32,11 +32,17 @@ from app.db import conectar  # noqa: E402
 from app.recomendador.atributos import AtributosStrategy  # noqa: E402
 from app.recomendador.base import Candidato  # noqa: E402
 from app.recomendador.historico import (  # noqa: E402
+    HistoricoStrategy,
+    calcular_reglas,
     calcular_reglas_desde_canastas,
     limite_inferior_wilson,
 )
 from app.recomendador.ranking import mezclar  # noqa: E402
+from app.repositories import relaciones_repo  # noqa: E402
 from app.seed import sembrar  # noqa: E402
+from scripts.construir_relaciones import (  # noqa: E402
+    relaciones_por_atributos,
+)
 
 K = 3
 SEMILLA = 42
@@ -186,7 +192,17 @@ BASELINES = {
 }
 
 
-def evaluar(bd) -> tuple[dict, int]:
+MODOS = {
+    "solo lo comprobado": {"historico": 1.0, "atributos": 0.35},
+    "equilibrado": {"historico": 1.0, "atributos": 0.65},
+    "descubrir mas": {"historico": 0.7, "atributos": 1.0},
+}
+
+# El modo con el que se reporta la tabla principal: el de operar a diario.
+MODO_POR_DEFECTO = "equilibrado"
+
+
+def evaluar(bd, pesos: dict | None = None) -> tuple[dict, int]:
     productos, tickets = leer_datos(bd)
     comprables = {s for s, p in productos.items() if p["activo"] and p["stock"] > 0}
     atributos = AtributosStrategy(bd)
@@ -222,7 +238,7 @@ def evaluar(bd) -> tuple[dict, int]:
                 fuentes=[historico, atributos],
                 sku=ancla,
                 tienda=datos["tienda"],
-                pesos={"historico": 1.0, "atributos": 0.8},
+                pesos=pesos or MODOS[MODO_POR_DEFECTO],
                 ajustes={},
                 comprables=comprables,
                 excluir=excluir,
@@ -248,6 +264,36 @@ def evaluar(bd) -> tuple[dict, int]:
                     resultados[nombre]["rr"] += 1 / (lista.index(oculto) + 1)
 
     return resultados, instancias
+
+
+def sugerencias_por_producto(bd, pesos: dict) -> float:
+    """Cuantas sugerencias deja este modo, en promedio y con el limite real.
+
+    Es la otra mitad de la historia: un modo que acierta menos porque propone
+    menos no es peor, es mas exigente. Sin este numero, la tabla de hit-rate
+    sola haria parecer que "solo lo comprobado" esta roto.
+    """
+    productos, _ = leer_datos(bd)
+    comprables = {s for s, p in productos.items() if p["activo"] and p["stock"] > 0}
+    atributos = AtributosStrategy(bd)
+    historico = HistoricoStrategy(bd)
+    plazas = [f["id"] for f in bd.execute("SELECT id FROM tiendas ORDER BY id")]
+
+    total = 0
+    for sku in sorted(productos):
+        for plaza in plazas:
+            total += len(
+                mezclar(
+                    fuentes=[historico, atributos],
+                    sku=sku,
+                    tienda=plaza,
+                    pesos=pesos,
+                    ajustes={},
+                    comprables=comprables,
+                    excluir=set(),
+                )["complementos"]
+            )
+    return total / (len(productos) * len(plazas))
 
 
 def evaluar_conjunto_dorado(bd) -> dict:
@@ -311,7 +357,9 @@ def caso_merida(bd) -> list[dict]:
     return salida
 
 
-def construir_reporte(resultados, instancias, dorado, merida, productos) -> str:
+def construir_reporte(
+    resultados, instancias, dorado, merida, productos, por_modo
+) -> str:
     lineas = []
     w = lineas.append
 
@@ -351,6 +399,25 @@ def construir_reporte(resultados, instancias, dorado, merida, productos) -> str:
     w("aparecen en mas de un ticket. Un test de canasta no puede premiar lo que")
     w("nunca se vendio junto, y justamente ahi es donde este sistema aporta. Por")
     w("eso la evaluacion sigue con dos comprobaciones cualitativas.\n")
+
+    w("### Que cuesta y que da cada modo del panel\n")
+    w("Los tres modos de la pantalla de Relaciones no son texto: cambian cuanta")
+    w("evidencia se exige para ofrecer algo. Aqui esta el precio de cada uno,")
+    w("medido sobre las mismas 89 instancias.\n")
+    w("| Modo | hit-rate@3 | MRR | Sugerencias por producto |")
+    w("|---|---:|---:|---:|")
+    for nombre, cifras in por_modo.items():
+        w(
+            f"| {nombre} | {cifras['hit']:.3f} ({cifras['aciertos']}/{instancias}) "
+            f"| {cifras['mrr']:.3f} | {cifras['media']:.1f} |"
+        )
+    w("")
+    w("**Exigir mas evidencia cuesta aciertos, y eso es correcto.** «Solo lo")
+    w("comprobado» acierta menos porque ofrece menos: recorta la cola de")
+    w("sugerencias deducidas, y en esa cola caia algun acierto. Es la decision")
+    w("que el negocio toma conscientemente -precision antes que cobertura- y")
+    w("por eso el panel la ofrece como un modo y no como un valor por defecto")
+    w("escondido.\n")
 
     w("## 2. Conjunto dorado de dominio\n")
     w("20 pares que cualquier ferretero daria por obvios. Mide cobertura de")
@@ -437,11 +504,39 @@ def main() -> None:
     sembrar(ruta)
     bd = conectar(ruta)
     try:
+        # Las reglas materializadas, igual que en produccion: HistoricoStrategy
+        # lee de la tabla `relaciones`, no recalcula. Sin esto se estaria
+        # midiendo un sistema que solo tiene la mitad de sus fuentes.
+        #
+        # No contamina el leave-one-out: ese usa reglas en memoria construidas
+        # por pliegue, sin el ticket que mide.
+        combinadas = {}
+        for regla in relaciones_por_atributos(bd) + calcular_reglas(bd):
+            combinadas[(regla["sku_origen"], regla["sku_destino"], regla["tipo"])] = regla
+        bd.execute("BEGIN IMMEDIATE")
+        relaciones_repo.reemplazar(bd, list(combinadas.values()))
+        bd.commit()
+
         resultados, instancias = evaluar(bd)
+
+        # El mismo leave-one-out con cada modo del panel: es lo que demuestra
+        # que los tres hacen algo distinto, y cuanto cuesta cada uno.
+        por_modo = {}
+        for nombre, pesos in MODOS.items():
+            cifras, _ = evaluar(bd, pesos)
+            por_modo[nombre] = {
+                "aciertos": cifras["hibrido"]["aciertos"],
+                "hit": cifras["hibrido"]["aciertos"] / instancias,
+                "mrr": cifras["hibrido"]["rr"] / instancias,
+                "media": sugerencias_por_producto(bd, pesos),
+            }
+
         dorado = evaluar_conjunto_dorado(bd)
         merida = caso_merida(bd)
         productos, _ = leer_datos(bd)
-        reporte = construir_reporte(resultados, instancias, dorado, merida, productos)
+        reporte = construir_reporte(
+            resultados, instancias, dorado, merida, productos, por_modo
+        )
     finally:
         bd.close()
         for sufijo in ("", "-wal", "-shm"):
