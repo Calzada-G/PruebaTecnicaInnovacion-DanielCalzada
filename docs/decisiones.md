@@ -74,7 +74,7 @@ Dos trampas del texto que costaron un bug cada una:
 
 ---
 
-## 3. ¿Por qué SQLite a pelo y no un ORM?
+## 3. ¿Por qué SQLite y no un ORM?
 
 Porque el requisito crítico es **control exacto de la transacción**, y ahí un ORM
 añade manejo de sesiones y threading que hay que dominar para defenderlo, sin

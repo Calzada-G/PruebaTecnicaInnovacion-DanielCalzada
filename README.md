@@ -205,23 +205,38 @@ python scripts/evaluar.py    # evaluación contra 4 baselines
 ### Del sistema
 
 ```
-Navegador ──HTTP/JSON──> FastAPI ──sqlite3──> ferreteria.db (WAL)
-   Next 16                  │
-   (cliente)                └──httpx──> Gemini   (opcional, bajo demanda)
-
-Fuera del ciclo de petición:  seed · construir_relaciones · evaluar
+┌────────────────────────┐      HTTP/JSON      ┌────────────────────────────┐
+│  Next 16      :3000    │  ────────────────▶  │  FastAPI       :8000       │
+│  navegador             │  ◀────────────────  │  uvicorn + threadpool      │
+│                        │   CORS explícito    └─────┬──────────────────┬───┘
+│  TanStack Query        │                           │ sqlite3          │ httpx
+│  = caché del estado    │                           ▼                  ▼
+│    que vive en el      │                 ┌──────────────────┐  ┌────────────┐
+│    servidor            │                 │ SQLite (WAL)     │  │  Gemini    │
+└────────────────────────┘                 │ ferreteria.db    │  │  opcional  │
+                                           └────────▲─────────┘  └────────────┘
+       fuera del ciclo de petición ─────────────────┘
+       seed · construir_relaciones · evaluar · redactar_justificaciones
 ```
 
-**Dos procesos y no uno.** El enunciado fija Python para el backend; servir la
-interfaz desde FastAPI habría obligado a plantillas y a perder el modelo de
-componentes. Se descartaron: un monolito con Jinja (pierde la interactividad del
-mostrador), renderizado en servidor consumiendo FastAPI (dobla la latencia sin
-aportar SEO a un sistema interno) y microservicios (infraestructura para un
-problema que no existe con 28 productos).
+**Por qué dos procesos y no uno.** El enunciado fija Python + FastAPI para el
+backend. Con eso dado, la interfaz es necesariamente otro proceso: servirla
+desde FastAPI habría obligado a plantillas y a renunciar al modelo de
+componentes justo en la pantalla con más estado local del sistema, el ticket en
+curso. La frontera es HTTP con CORS explícito y **un único cliente** en
+`lib/api.ts` — ningún componente hace `fetch` por su cuenta.
+
+| Alternativa | Por qué no |
+|---|---|
+| **Next full-stack** (route handlers, sin FastAPI) | El enunciado fija Python. Y perdería el control fino de la transacción SQLite, que es el requisito crítico |
+| **Renderizado en servidor consumiendo FastAPI** | Dobla el modelo de datos —TypeScript y Pydantic— y obliga a decidir en cada vista qué se renderiza dónde, a cambio de un SEO que un sistema interno no necesita |
+| **Next como BFF** (proxy `/api/*` → FastAPI) | Un salto de red más y un segundo sitio donde traducir errores, a cambio de nada: ambos corren en localhost y no hay secretos que ocultar al navegador |
+| **Monolito con Jinja** | Descarta React, que el enunciado pide, y complica el mostrador |
+| **Microservicios** | Infraestructura para un problema que no existe con 28 productos |
 
 **Los scripts están fuera del ciclo de petición a propósito.** Sembrar,
-construir reglas y evaluar son procesos por lotes: meterlos en un endpoint
-convertiría una petición en una tarea de minutos.
+construir reglas, evaluar 89 pliegues o llamar a un LLM son procesos por lotes.
+Nada de eso debe ocurrir mientras un vendedor espera con un cliente enfrente.
 
 ### Del código
 
